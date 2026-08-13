@@ -1,0 +1,37 @@
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      # Swap for a Postgres DSN in production, e.g.:
+      # DATABASE_URL: postgresql+psycopg2://ifield:ifield@db:5432/ifield_wetworks
+      DATABASE_URL: sqlite:////app/data/ifield_wetworks.db
+    volumes:
+      - backend_data:/app/data
+    ports:
+      - "8000:8000"  # exposed directly too, handy for API docs at /docs
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  backend_data:
+
+# --- Optional Postgres service (uncomment + set backend's DATABASE_URL above) ---
+#  db:
+#    image: postgres:16-alpine
+#    restart: unless-stopped
+#    environment:
+#      POSTGRES_USER: ifield
+#      POSTGRES_PASSWORD: ifield
+#      POSTGRES_DB: ifield_wetworks
+#    volumes:
+#      - pg_data:/var/lib/postgresql/data
+#
+# volumes:
+#   pg_data:
