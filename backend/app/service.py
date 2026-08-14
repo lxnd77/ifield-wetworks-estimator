@@ -1,4 +1,5 @@
 """Shared business logic used by both the API and the Excel export."""
+import math
 from sqlalchemy.orm import Session
 from . import models
 from .calc import compute_material_cost, compute_labor_cost, price_lookup_factory
@@ -23,12 +24,19 @@ def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.Es
         db.delete(c)
     db.flush()
     for comp in material.components:
+        # You can't buy a fraction of a drum/roll/pack -- the theoretical
+        # consumption is rounded up to the nearest whole purchase unit for
+        # the line's total, matching how the source Estimate Form priced
+        # purchase quantities (see README "Known limitations").
+        raw_qty = comp.qty_per_unit * line.qty
+        rounded_qty = math.ceil(raw_qty)
+        price_per_uom = (comp.cost_per_unit / comp.qty_per_unit) if comp.qty_per_unit else 0.0
         db.add(models.EstimateLineComponent(
             estimate_line_id=line.id,
             support_item_id=comp.support_item_id,
-            qty=comp.qty_per_unit * line.qty,
+            qty=rounded_qty,
             unit_cost=comp.unit_price_usd,
-            total_cost=comp.cost_per_unit * line.qty,
+            total_cost=rounded_qty * price_per_uom,
         ))
     return line
 
