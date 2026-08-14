@@ -112,6 +112,8 @@ function CoverageRateEditor({ product, onSaved }) {
     secondary_coverage_per_day: cr?.secondary_coverage_per_day ?? 0,
     inhouse_count: cr?.inhouse_count ?? 2,
     local_count: cr?.local_count ?? 0,
+    inhouse_salary_month_local: cr?.inhouse_salary_month_local ?? 0,
+    local_salary_month_local: cr?.local_salary_month_local ?? 0,
   });
   const [saving, setSaving] = useState(false);
 
@@ -121,6 +123,8 @@ function CoverageRateEditor({ product, onSaved }) {
       secondary_coverage_per_day: cr?.secondary_coverage_per_day ?? 0,
       inhouse_count: cr?.inhouse_count ?? 2,
       local_count: cr?.local_count ?? 0,
+      inhouse_salary_month_local: cr?.inhouse_salary_month_local ?? 0,
+      local_salary_month_local: cr?.local_salary_month_local ?? 0,
     });
   }, [cr]);
 
@@ -135,6 +139,8 @@ function CoverageRateEditor({ product, onSaved }) {
         secondary_coverage_per_day: Number(form.secondary_coverage_per_day || 0),
         inhouse_count: Number(form.inhouse_count),
         local_count: Number(form.local_count),
+        inhouse_salary_month_local: Number(form.inhouse_salary_month_local || 0),
+        local_salary_month_local: Number(form.local_salary_month_local || 0),
       });
       onSaved();
     } finally {
@@ -150,6 +156,8 @@ function CoverageRateEditor({ product, onSaved }) {
         <Field label="Secondary (grouting) coverage/day" value={form.secondary_coverage_per_day} onChange={set("secondary_coverage_per_day")} />
         <Field label="In-house crew count" value={form.inhouse_count} onChange={set("inhouse_count")} />
         <Field label="Local labor count" value={form.local_count} onChange={set("local_count")} />
+        <Field label="In-house salary / month (local currency)" value={form.inhouse_salary_month_local} onChange={set("inhouse_salary_month_local")} />
+        <Field label="Local labor salary / month (local currency)" value={form.local_salary_month_local} onChange={set("local_salary_month_local")} />
       </div>
       <button disabled={saving} className="mt-3 text-sm px-4 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700">
         {saving ? "Saving..." : "Save coverage rate"}

@@ -24,13 +24,6 @@ const FIELD_GROUPS = [
     ],
   },
   {
-    title: "Salaries (monthly, local currency)",
-    fields: [
-      ["inhouse_salary_month_local", "In-house staff salary / month", "number"],
-      ["local_salary_month_local", "Local labor salary / month", "number"],
-    ],
-  },
-  {
     title: "Per-worker allowances (monthly, local currency, except where noted)",
     fields: [
       ["food_per_month_local", "Food allowance / month", "number"],

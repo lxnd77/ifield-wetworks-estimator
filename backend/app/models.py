@@ -73,6 +73,10 @@ class CoverageRate(Base):
     secondary_coverage_per_day = Column(Float, nullable=True, default=0.0)  # e.g. grouting sqm/day per worker
     inhouse_count = Column(Integer, nullable=False, default=2)
     local_count = Column(Integer, nullable=False, default=0)
+    # Wages vary by trade (a tiler earns differently than a painter), so salary
+    # is set per product, not on the country's rate card.
+    inhouse_salary_month_local = Column(Float, nullable=False, default=0.0)
+    local_salary_month_local = Column(Float, nullable=False, default=0.0)
 
     product = relationship("WetworksProduct", back_populates="coverage_rate")
 
@@ -102,9 +106,6 @@ class Country(Base):
 
     working_days_per_month = Column(Float, default=26.0)
     wages_oh_rate_pct = Column(Float, default=0.15)
-
-    inhouse_salary_month_local = Column(Float, default=0.0)
-    local_salary_month_local = Column(Float, default=0.0)
 
     # NOTE: food/accommodation/local travel are entered as MONTHLY local-currency
     # allowances (same as salary) and amortized over working_days_per_month --

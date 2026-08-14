@@ -13,8 +13,8 @@ from app.calc import compute_labor_cost, compute_material_cost
 def make_ksa_country():
     return SimpleNamespace(
         working_days_per_month=26,
-        inhouse_fx_rate_to_usd=94, inhouse_salary_month_local=45000,
-        local_fx_rate_to_usd=94, local_salary_month_local=0,
+        inhouse_fx_rate_to_usd=94,
+        local_fx_rate_to_usd=94,
         wages_oh_rate_pct=0.15,
         site_fx_rate_to_usd=3.75,
         food_per_month_local=900, accommodation_per_month_local=550, local_travel_per_month_local=90,
@@ -24,7 +24,8 @@ def make_ksa_country():
 
 def test_labor_cost_floor_tiling_1200x600():
     coverage = SimpleNamespace(primary_coverage_per_day=14, secondary_coverage_per_day=25,
-                                inhouse_count=2, local_count=0)
+                                inhouse_count=2, local_count=0,
+                                inhouse_salary_month_local=45000, local_salary_month_local=0)
     res = compute_labor_cost(coverage, make_ksa_country(), duration_months=12)
     # source sheet: Total Rate/U/M = 8.108063284233497 (sheet rounds some
     # intermediate $/day inputs before reuse; this engine computes from
@@ -34,7 +35,8 @@ def test_labor_cost_floor_tiling_1200x600():
 
 def test_labor_cost_marble_flooring():
     coverage = SimpleNamespace(primary_coverage_per_day=8, secondary_coverage_per_day=50,
-                                inhouse_count=4, local_count=0)
+                                inhouse_count=4, local_count=0,
+                                inhouse_salary_month_local=45000, local_salary_month_local=0)
     res = compute_labor_cost(coverage, make_ksa_country(), duration_months=12)
     assert abs(res.cost_per_unit - 25.83730496453901) < 0.02
 
@@ -43,7 +45,8 @@ def test_shorter_duration_raises_labor_cost():
     """Air ticket / visa are amortized over the actual project duration --
     a shorter project should cost more per unit, not less or the same."""
     coverage = SimpleNamespace(primary_coverage_per_day=14, secondary_coverage_per_day=25,
-                                inhouse_count=2, local_count=0)
+                                inhouse_count=2, local_count=0,
+                                inhouse_salary_month_local=45000, local_salary_month_local=0)
     country = make_ksa_country()
     long_run = compute_labor_cost(coverage, country, duration_months=12)
     short_run = compute_labor_cost(coverage, country, duration_months=3)

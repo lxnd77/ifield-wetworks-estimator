@@ -3,10 +3,10 @@ structure of the sample files the app must feed:
   - Sale_Estimation_sale.estimation.xlsx  (one workbook per project = one
     sale.estimation record, one estimation_line per EstimateLine, exploded
     into its BOM components as sale_estimation_component_product_line_ids)
-  - BOM_ODOO_FORMAT.xlsx (one mrp.bom per EstimateLine -- a location-specific
-    'virtual product', e.g. "Wall Paint- caprol in Lobby" -- with its BOM
-    lines showing the per-unit recipe, mirroring the sample's pattern where
-    each estimate line/location becomes its own named BOM.)
+  - BOM_ODOO_FORMAT.xlsx (one mrp.bom per EstimateLine, named after the
+    standardized product only, e.g. "Wall Paint- caprol" -- with its BOM
+    lines showing the per-unit recipe. Location is not baked into the name,
+    and `reference` is left blank for the importing team to fill in.)
 
 Only fields this app actually models are populated; Odoo-specific fields we
 don't track (assigned_to/user, cost_center_type, dimension) are left blank
@@ -45,7 +45,7 @@ BOM_HEADERS = ["product", "reference", "product_qty", "bom_line_ids/product_id",
 
 
 def line_virtual_product_name(line: models.EstimateLine) -> str:
-    return f"{line.product.name} in {line.location.name}"
+    return line.product.name
 
 
 def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
@@ -80,7 +80,7 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
             row = {h: "" for h in SALE_ESTIMATION_HEADERS}
             if not first_row_written:
                 row.update({
-                    "estimation_type_id": "Wetworks", "project_estimation_id": project.id,
+                    "estimation_type_id": "Wetworks", "project_estimation_id": project.name,
                     "costing_type": "Product and Service",
                     "source_pricelist_id": "Default AED pricelist",
                     "destination_pricelist_id": "Default AED pricelist",
@@ -97,7 +97,7 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
             row = {h: "" for h in SALE_ESTIMATION_HEADERS}
             if not first_row_written:
                 row.update({
-                    "estimation_type_id": "Wetworks", "project_estimation_id": project.id,
+                    "estimation_type_id": "Wetworks", "project_estimation_id": project.name,
                     "costing_type": "Product and Service",
                     "source_pricelist_id": "Default AED pricelist",
                     "destination_pricelist_id": "Default AED pricelist",
@@ -130,7 +130,7 @@ def build_bom_workbook(db, project: models.Project) -> BytesIO:
 
     for line in project.estimate_lines:
         product_name = line_virtual_product_name(line)
-        reference = f"{(line.product.default_code or line.product.name[:6]).strip()}-{line.location.id}-{line.id}"
+        reference = ""
         bom_lines = line.product.bom_lines
         if not bom_lines:
             ws.append([product_name, reference, 1, "", ""])

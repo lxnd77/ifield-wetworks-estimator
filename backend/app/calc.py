@@ -61,8 +61,12 @@ def compute_material_cost(bom_lines, price_lookup) -> MaterialResult:
 
 
 def compute_labor_cost(coverage_rate, country, duration_months: float) -> LaborResult:
-    """coverage_rate: CoverageRate ORM object.
-    country: Country ORM object.
+    """coverage_rate: CoverageRate ORM object. Carries the product's own wages
+    (salary varies by trade -- a tiler earns differently than a painter --
+    so it's set per product rather than on the country's rate card).
+    country: Country ORM object. Supplies FX rates, working calendar, wage
+    overhead %, and per-worker allowances, which are site/country-level, not
+    trade-specific.
     duration_months: project duration used to amortize one-off mobilization
     costs (air ticket, visa) over the actual length of the engagement --
     shorter projects carry a higher per-unit mobilization cost, matching the
@@ -75,10 +79,10 @@ def compute_labor_cost(coverage_rate, country, duration_months: float) -> LaborR
     wd_month = country.working_days_per_month or 26.0
     inhouse_day_rate = 0.0
     if country.inhouse_fx_rate_to_usd:
-        inhouse_day_rate = (country.inhouse_salary_month_local / wd_month) / country.inhouse_fx_rate_to_usd
+        inhouse_day_rate = (coverage_rate.inhouse_salary_month_local / wd_month) / country.inhouse_fx_rate_to_usd
     local_day_rate = 0.0
-    if country.local_fx_rate_to_usd and country.local_salary_month_local:
-        local_day_rate = (country.local_salary_month_local / wd_month) / country.local_fx_rate_to_usd
+    if country.local_fx_rate_to_usd and coverage_rate.local_salary_month_local:
+        local_day_rate = (coverage_rate.local_salary_month_local / wd_month) / country.local_fx_rate_to_usd
 
     inhouse_n = coverage_rate.inhouse_count or 0
     local_n = coverage_rate.local_count or 0

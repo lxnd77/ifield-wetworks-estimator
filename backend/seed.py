@@ -90,10 +90,11 @@ def run():
             product = product_by_name.get(name)
             if not product:
                 continue
-            primary, secondary, inhouse_n, local_n = LBR_COVERAGE[lbr_key]
+            primary, secondary, inhouse_n, local_n, inhouse_salary, local_salary = LBR_COVERAGE[lbr_key]
             db.add(models.CoverageRate(
                 product_id=product.id, primary_coverage_per_day=primary,
                 secondary_coverage_per_day=secondary, inhouse_count=inhouse_n, local_count=local_n,
+                inhouse_salary_month_local=inhouse_salary, local_salary_month_local=local_salary,
             ))
 
         db.commit()

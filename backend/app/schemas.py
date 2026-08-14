@@ -42,6 +42,8 @@ class CoverageRateOut(BaseModel):
     secondary_coverage_per_day: Optional[float] = 0.0
     inhouse_count: int
     local_count: int
+    inhouse_salary_month_local: float
+    local_salary_month_local: float
 
 
 class CoverageRateIn(BaseModel):
@@ -49,6 +51,8 @@ class CoverageRateIn(BaseModel):
     secondary_coverage_per_day: float = 0.0
     inhouse_count: int = 2
     local_count: int = 0
+    inhouse_salary_month_local: float = 0.0
+    local_salary_month_local: float = 0.0
 
 
 class ProductOut(BaseModel):
@@ -93,8 +97,6 @@ class CountryOut(BaseModel):
     material_fx_rate_to_usd: float
     working_days_per_month: float
     wages_oh_rate_pct: float
-    inhouse_salary_month_local: float
-    local_salary_month_local: float
     food_per_month_local: float
     accommodation_per_month_local: float
     local_travel_per_month_local: float
@@ -117,8 +119,6 @@ class CountryIn(BaseModel):
     material_fx_rate_to_usd: float = 1.0
     working_days_per_month: float = 26.0
     wages_oh_rate_pct: float = 0.15
-    inhouse_salary_month_local: float = 0.0
-    local_salary_month_local: float = 0.0
     food_per_month_local: float = 0.0
     accommodation_per_month_local: float = 0.0
     local_travel_per_month_local: float = 0.0
