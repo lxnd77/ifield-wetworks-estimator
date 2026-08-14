@@ -1,0 +1,10 @@
+# Deps for the /api serverless function (see api/index.py). Vercel's Python
+# builder reads this file from the project root. No uvicorn/pytest here --
+# Vercel's own ASGI runtime serves the app, and tests don't run in prod.
+fastapi==0.115.0
+sqlalchemy==2.0.35
+pydantic==2.9.2
+python-multipart==0.0.9
+openpyxl==3.1.5
+python-dateutil==2.9.0
+psycopg2-binary==2.9.10

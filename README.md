@@ -46,6 +46,14 @@ npm run dev                # http://localhost:5173, proxies /api to localhost:80
 # or: npm run build && npx vite preview   for a production-like local check
 ```
 
+## Deploying to Vercel
+
+See [DEPLOY.md](DEPLOY.md) -- the repo is pre-configured to deploy as a
+single Vercel project (static frontend + FastAPI backend as a Python
+serverless function under `/api`, same domain). You'll need a hosted
+Postgres database (Vercel Postgres, Neon, Supabase...); SQLite doesn't work
+in a serverless environment.
+
 ## How estimation works
 
 An estimate is a **Project** (country + start/end date + margin %) containing
