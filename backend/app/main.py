@@ -1,9 +1,12 @@
+import os
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session, joinedload
 
 from . import models, schemas, service
@@ -391,3 +394,22 @@ def _load_project_for_export(db: Session, project_id: int) -> models.Project:
 @app.get("/api/health")
 def health():
     return {"status": "ok", "time": datetime.utcnow().isoformat()}
+
+
+# ---------------------------------------------------------------- static frontend
+# On Vercel every request lands on this single serverless function regardless
+# of path (see DEPLOY.md), so the built frontend is served from here too --
+# registered last so it never shadows the /api/* routes above. Locally this
+# is a no-op (dist/ doesn't exist unless you've run `npm run build`); the dev
+# workflow of `npm run dev` on :5173 proxying to this API is unaffected.
+_frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+
+if _frontend_dist.is_dir():
+    app.mount("/assets", StaticFiles(directory=_frontend_dist / "assets"), name="assets")
+
+    @app.get("/{full_path:path}")
+    def serve_frontend(full_path: str):
+        candidate = _frontend_dist / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(_frontend_dist / "index.html")
