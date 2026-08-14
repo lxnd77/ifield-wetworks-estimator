@@ -6,14 +6,19 @@ Python serverless function under `/api`, both served from the same domain
 (no CORS/env wiring needed on the frontend). This is wired up via three
 files at the repo root:
 
-- [`vercel.json`](vercel.json) -- builds `frontend/` (`npm run build` ->
-  `frontend/dist`), and rewrites every `/api/*` request to the serverless
-  function so the FastAPI app's own `/api/...` routes handle it. A catch-all
-  rewrite falls back to `index.html` for client-side (React Router) routes.
-- [`api/index.py`](api/index.py) -- the serverless entrypoint. Vercel
-  auto-detects the exported `app` (the FastAPI/ASGI app from
-  `backend/app/main.py`) and deploys it as a Python function, no extra
-  wrapper needed.
+- [`vercel.json`](vercel.json) -- uses the explicit `builds`/`routes` format
+  (not the newer `rewrites`/zero-config style, which was tried first and
+  turned out to route every request -- including static assets -- into the
+  Python function, since `api/index.py` doesn't map to `/api/index` the way
+  a naive rewrite destination would assume; it maps to `/api`). `builds`
+  declares two build steps -- `frontend/` via `@vercel/static-build` into
+  `frontend/dist`, and `api/index.py` via `@vercel/python` -- and `routes`
+  pins `/api/*` to the Python function by file reference (not URL guessing),
+  falls through to the static build's own files via `{"handle":
+  "filesystem"}`, and only falls back to `index.html` for unmatched paths
+  (client-side React Router routes).
+- [`api/index.py`](api/index.py) -- the serverless entrypoint. Exports the
+  FastAPI/ASGI `app` from `backend/app/main.py` unchanged.
 - [`requirements.txt`](requirements.txt) -- Python deps for that function
   (Vercel's Python builder reads this from the project root). Trimmed down
   from `backend/requirements.txt`: no `uvicorn` (Vercel's own runtime serves
