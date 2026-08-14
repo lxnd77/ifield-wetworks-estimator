@@ -69,7 +69,7 @@ export default function ProjectDetail() {
   return (
     <div className="space-y-6">
       <div>
-        <Link to="/" className="text-xs text-indigo-600 hover:underline">&larr; All projects</Link>
+        <Link to="/" className="text-xs text-ruby hover:underline">&larr; All projects</Link>
         <div className="flex items-start justify-between mt-1">
           <div>
             <h1 className="text-xl font-semibold text-slate-800">{project.name}</h1>
@@ -138,7 +138,7 @@ export default function ProjectDetail() {
 
 function SummaryStat({ label, value, highlight, warn }) {
   return (
-    <div className={`rounded-lg border p-3 bg-white ${highlight ? "border-indigo-300" : ""} ${warn ? "border-amber-300" : ""}`}>
+    <div className={`rounded-lg border p-3 bg-white ${highlight ? "border-ruby/40" : ""} ${warn ? "border-amber-300" : ""}`}>
       <div className="text-xs text-slate-400">{label}</div>
       <div className={`text-lg font-semibold ${warn ? "text-amber-600" : "text-slate-800"}`}>{value}</div>
     </div>
@@ -272,7 +272,7 @@ function AddLineForm({ locationId, projectId, products, onClose, onAdded }) {
         <label className="text-xs text-slate-500">Qty {selected ? `(${selected.uom})` : ""}</label>
         <input required type="number" step="0.01" value={qty} onChange={(e) => setQty(e.target.value)} className="w-28 border rounded-md px-2 py-1.5 text-sm" />
       </div>
-      <button disabled={saving} className="text-sm px-4 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700">
+      <button disabled={saving} className="text-sm px-4 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
         {saving ? "Adding..." : "Add"}
       </button>
       <button type="button" onClick={onClose} className="text-sm px-3 py-1.5 rounded-md border bg-white">

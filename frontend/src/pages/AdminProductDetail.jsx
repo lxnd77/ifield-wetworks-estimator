@@ -44,7 +44,7 @@ export default function AdminProductDetail() {
   return (
     <div className="space-y-6">
       <div>
-        <Link to="/admin/products" className="text-xs text-indigo-600 hover:underline">&larr; All products</Link>
+        <Link to="/admin/products" className="text-xs text-ruby hover:underline">&larr; All products</Link>
         <h1 className="text-xl font-semibold text-slate-800 mt-1">{product.name}</h1>
         <div className="text-xs text-slate-500">{product.category} &middot; {product.uom}</div>
       </div>
@@ -159,7 +159,7 @@ function CoverageRateEditor({ product, onSaved }) {
         <Field label="In-house salary / month (local currency)" value={form.inhouse_salary_month_local} onChange={set("inhouse_salary_month_local")} />
         <Field label="Local labor salary / month (local currency)" value={form.local_salary_month_local} onChange={set("local_salary_month_local")} />
       </div>
-      <button disabled={saving} className="mt-3 text-sm px-4 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700">
+      <button disabled={saving} className="mt-3 text-sm px-4 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
         {saving ? "Saving..." : "Save coverage rate"}
       </button>
     </form>
@@ -296,7 +296,7 @@ function BomEditor({ product, supportItems, onChanged }) {
             </div>
           </div>
           <div className="flex gap-2">
-            <button disabled={saving} className="text-sm px-4 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700">
+            <button disabled={saving} className="text-sm px-4 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
               {saving ? "Saving..." : "Add BOM line"}
             </button>
             <button type="button" onClick={() => setAdding(false)} className="text-sm px-3 py-1.5 rounded-md border">Cancel</button>

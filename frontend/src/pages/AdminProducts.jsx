@@ -56,7 +56,7 @@ export default function AdminProducts() {
             {filtered.map((p) => (
               <tr key={p.id} className="border-b last:border-0 hover:bg-slate-50">
                 <td className="px-4 py-2">
-                  <Link to={`/admin/products/${p.id}`} className="text-indigo-600 hover:underline">
+                  <Link to={`/admin/products/${p.id}`} className="text-ruby hover:underline">
                     {p.name}
                   </Link>
                 </td>

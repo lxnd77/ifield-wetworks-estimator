@@ -16,7 +16,7 @@ export default function AdminCountries() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-slate-800">Countries</h1>
-        <button onClick={() => setShowNew(true)} className="bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-indigo-700">
+        <button onClick={() => setShowNew(true)} className="bg-ruby text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-ruby-dark">
           + Add a country
         </button>
       </div>
@@ -83,7 +83,7 @@ function NewCountryModal({ onClose, onCreated }) {
         {error && <div className="text-xs text-red-600">{error}</div>}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-md border">Cancel</button>
-          <button disabled={saving} className="px-4 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700">
+          <button disabled={saving} className="px-4 py-2 text-sm rounded-md bg-ruby text-white hover:bg-ruby-dark">
             {saving ? "Creating..." : "Create"}
           </button>
         </div>

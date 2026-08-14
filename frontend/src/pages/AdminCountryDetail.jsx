@@ -78,7 +78,7 @@ export default function AdminCountryDetail() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <Link to="/admin/countries" className="text-xs text-indigo-600 hover:underline">&larr; All countries</Link>
+        <Link to="/admin/countries" className="text-xs text-ruby hover:underline">&larr; All countries</Link>
         <div className="flex items-center justify-between mt-1">
           <h1 className="text-xl font-semibold text-slate-800">{country.name} ({country.code})</h1>
           {country.is_template && (
@@ -114,7 +114,7 @@ export default function AdminCountryDetail() {
           </div>
         ))}
         <div className="flex items-center gap-3">
-          <button disabled={saving} className="text-sm px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700">
+          <button disabled={saving} className="text-sm px-4 py-2 rounded-md bg-ruby text-white hover:bg-ruby-dark">
             {saving ? "Saving..." : "Save rate card"}
           </button>
           {saved && <span className="text-xs text-emerald-600">Saved. Existing project estimates in this country will recompute next time they're opened or edited.</span>}
