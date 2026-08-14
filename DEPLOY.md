@@ -6,17 +6,21 @@ Python serverless function under `/api`, both served from the same domain
 (no CORS/env wiring needed on the frontend). This is wired up via three
 files at the repo root:
 
-- [`vercel.json`](vercel.json) -- uses the explicit `builds`/`routes` format
-  (not the newer `rewrites`/zero-config style, which was tried first and
-  turned out to route every request -- including static assets -- into the
-  Python function, since `api/index.py` doesn't map to `/api/index` the way
-  a naive rewrite destination would assume; it maps to `/api`). `builds`
-  declares two build steps -- `frontend/` via `@vercel/static-build` into
-  `frontend/dist`, and `api/index.py` via `@vercel/python` -- and `routes`
-  pins `/api/*` to the Python function by file reference (not URL guessing),
-  falls through to the static build's own files via `{"handle":
-  "filesystem"}`, and only falls back to `index.html` for unmatched paths
-  (client-side React Router routes).
+- [`vercel.json`](vercel.json) -- `buildCommand`/`outputDirectory` build
+  `frontend/` into `frontend/dist` and serve it as Vercel's native static
+  site (files resolve at their real paths -- `/index.html`, `/assets/*`,
+  `/favicon.svg`, etc. -- no custom routing needed for that half). A single
+  rewrite, `/((?!api/).*) -> /index.html`, falls back to the SPA's
+  `index.html` for client-side React Router paths (e.g. `/admin/products/35`)
+  that aren't real files, while explicitly excluding `/api/*` so it can
+  never shadow the API. `api/index.py` at the repo root is zero-config
+  auto-detected by Vercel as a Python serverless function and every
+  `/api/*` request routes to it automatically (Vercel treats a file
+  exporting a full ASGI app as a "framework" and wildcards its whole
+  subtree -- no explicit route needed, and trying to write one is what
+  broke this the first two times: a custom rewrite/route destination like
+  `/api/index` doesn't correspond to anything real, since the function's
+  actual route is exactly `/api`).
 - [`api/index.py`](api/index.py) -- the serverless entrypoint. Exports the
   FastAPI/ASGI `app` from `backend/app/main.py` unchanged.
 - [`requirements.txt`](requirements.txt) -- Python deps for that function
