@@ -71,7 +71,7 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
             "estimation_line_ids/product_uom_qty": line.qty,
             "estimation_line_ids/material_cost": round(totals["material_total"], 2),
             "estimation_line_ids/wastage_percentage": round(avg_wastage * 100, 2),
-            "estimation_line_ids/labor_cost": round(totals["labor_total"], 2),
+            "estimation_line_ids/labor_cost": round(line.labor_cost_per_unit, 2),
             "estimation_line_ids/sales_value": round(totals["sales_value"], 2),
             "estimation_line_ids/margin_percentage": round(totals["margin_pct"], 2),
         }
