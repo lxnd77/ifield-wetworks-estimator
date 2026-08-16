@@ -24,11 +24,10 @@ Design notes (see README for the full writeup):
 # (lbr_key -> (primary_coverage_per_day, secondary_coverage_per_day, inhouse_count,
 #              local_count, inhouse_salary_month_local, local_salary_month_local))
 # Salary is per-trade (set on the product's coverage rate), not a single
-# country-wide figure -- the source LBR sheet used one uniform in-house
-# salary (45,000 SAR/month) across every trade it covered, so that's the
-# default carried over here; admins can now diverge individual trades'
-# salaries from the Admin > Products screen without touching the country
-# rate card.
+# country-wide figure -- confirmed against column O ("In-House Salary/Month")
+# of the source LBR Rate Calculation sheet, which is NOT uniform: most
+# tiling/stone/skirting trades are 45,000 SAR/month, but painting, punning,
+# gypsum ceiling, dry wall, plaster, and waterproofing are 40,000.
 LBR_COVERAGE = {
     "floor_1200x600": (14, 25, 2, 0, 45000, 0),
     "floor_600x600": (16, 25, 2, 0, 45000, 0),
@@ -44,19 +43,19 @@ LBR_COVERAGE = {
     "wall_1200x600": (12, 24.3, 2, 0, 45000, 0),
     "wall_600x600": (12, 24.3, 2, 0, 45000, 0),
     "wall_600x300": (14, 24.3, 2, 0, 45000, 0),
-    "gypsum_ceiling": (14, 0, 3, 0, 45000, 0),
+    "gypsum_ceiling": (14, 0, 3, 0, 40000, 0),
     "gypsum_corniche": (20, 0, 2, 0, 45000, 0),
-    "dry_wall_partition": (10, 0, 3, 0, 45000, 0),
-    "wall_punning": (15, 0, 2, 0, 45000, 0),
-    "ceiling_punning": (10, 0, 2, 0, 45000, 0),
-    "wall_paint": (18, 0, 1, 0, 45000, 0),
-    "ceiling_paint": (14, 0, 1, 0, 45000, 0),
-    "decorative_paint": (9, 0, 1, 0, 45000, 0),
-    "exterior_paint": (15, 0, 1, 0, 45000, 0),
+    "dry_wall_partition": (10, 0, 3, 0, 40000, 0),
+    "wall_punning": (15, 0, 2, 0, 40000, 0),
+    "ceiling_punning": (10, 0, 2, 0, 40000, 0),
+    "wall_paint": (18, 0, 1, 0, 40000, 0),
+    "ceiling_paint": (14, 0, 1, 0, 40000, 0),
+    "decorative_paint": (9, 0, 1, 0, 40000, 0),
+    "exterior_paint": (15, 0, 1, 0, 40000, 0),
     "ips_30mm": (55, 0, 3, 0, 45000, 0),
     "ips_50mm": (40, 0, 3, 0, 45000, 0),
-    "plaster": (10, 0, 1, 0, 45000, 0),
-    "waterproofing_2coat": (15, 0, 1, 0, 45000, 0),
+    "plaster": (10, 0, 1, 0, 40000, 0),
+    "waterproofing_2coat": (15, 0, 1, 0, 40000, 0),
     "staircase_step": (15.5, 10, 2, 0, 45000, 0),
     "staircase_skirting": (20, 20, 2, 0, 45000, 0),
 }
