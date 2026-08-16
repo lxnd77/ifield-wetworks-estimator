@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api";
+import { useCurrentUser } from "../components/RequireAuth";
 
 export default function ProjectsList() {
+  const currentUser = useCurrentUser();
   const [projects, setProjects] = useState([]);
   const [countries, setCountries] = useState([]);
   const [showNew, setShowNew] = useState(false);
@@ -44,6 +46,9 @@ export default function ProjectsList() {
               {p.country?.name} &middot; {p.start_date} &rarr; {p.end_date}
             </div>
             {p.client_name && <div className="text-xs text-slate-500 mt-2">Client: {p.client_name}</div>}
+            {currentUser?.is_admin && p.owner && (
+              <div className="text-xs text-ruby mt-1">Owner: {p.owner.username}</div>
+            )}
           </Link>
         ))}
       </div>

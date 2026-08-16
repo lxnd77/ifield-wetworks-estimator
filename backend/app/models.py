@@ -135,12 +135,23 @@ class CountryMaterialPrice(Base):
     support_item = relationship("SupportItem", back_populates="prices")
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String, nullable=False, unique=True)
+    password_hash = Column(String, nullable=False)
+    is_admin = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Project(Base):
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     country_id = Column(Integer, ForeignKey("countries.id"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     client_name = Column(String, nullable=True)
     address = Column(String, nullable=True)
     estimator_name = Column(String, nullable=True)
@@ -152,6 +163,7 @@ class Project(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     country = relationship("Country")
+    owner = relationship("User")
     locations = relationship("ProjectLocation", back_populates="project", cascade="all, delete-orphan")
     estimate_lines = relationship("EstimateLine", back_populates="project", cascade="all, delete-orphan")
 

@@ -177,47 +177,23 @@ function Field({ label, value, onChange, required }) {
 
 function BomEditor({ product, supportItems, onChanged }) {
   const [adding, setAdding] = useState(false);
-  const [mode, setMode] = useState("existing");
-  const [supportItemId, setSupportItemId] = useState("");
-  const [newName, setNewName] = useState("");
-  const [newUom, setNewUom] = useState(product.uom);
-  const [qty, setQty] = useState("1");
-  const [wastage, setWastage] = useState("0");
-  const [markup, setMarkup] = useState("0");
-  const [role, setRole] = useState("fixing");
-  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   const removeLine = async (lineId) => {
     await api.delete(`/bom-lines/${lineId}`);
     onChanged();
   };
 
-  const submit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const payload = {
-        qty_per_unit: Number(qty),
-        wastage_pct: Number(wastage),
-        markup_pct: Number(markup),
-        role,
-        sort_order: product.bom_lines.length,
-      };
-      if (mode === "existing") payload.support_item_id = Number(supportItemId);
-      else {
-        payload.new_support_item_name = newName;
-        payload.new_support_item_uom = newUom;
-      }
-      await api.post(`/products/${product.id}/bom-lines`, payload);
-      setAdding(false);
-      setQty("1");
-      setWastage("0");
-      setMarkup("0");
-      setNewName("");
-      onChanged();
-    } finally {
-      setSaving(false);
-    }
+  const submitNew = async (payload) => {
+    await api.post(`/products/${product.id}/bom-lines`, { ...payload, sort_order: product.bom_lines.length });
+    setAdding(false);
+    onChanged();
+  };
+
+  const submitEdit = async (lineId, payload) => {
+    await api.put(`/bom-lines/${lineId}`, payload);
+    setEditingId(null);
+    onChanged();
   };
 
   return (
@@ -244,65 +220,128 @@ function BomEditor({ product, supportItems, onChanged }) {
             </tr>
           </thead>
           <tbody>
-            {product.bom_lines.map((l) => (
-              <tr key={l.id} className="border-b last:border-0">
-                <td className="py-1.5">{l.support_item.name}</td>
-                <td className="py-1.5 text-right">{l.qty_per_unit}</td>
-                <td className="py-1.5 text-right">{(l.wastage_pct * 100).toFixed(1)}</td>
-                <td className="py-1.5 pr-3 text-right">{(l.markup_pct * 100).toFixed(1)}</td>
-                <td className="py-1.5 pl-3">{l.role}</td>
-                <td className="py-1.5 text-right">
-                  <button onClick={() => removeLine(l.id)} className="text-xs text-red-500 hover:underline">remove</button>
-                </td>
-              </tr>
-            ))}
+            {product.bom_lines.map((l) =>
+              editingId === l.id ? (
+                <tr key={l.id} className="border-b last:border-0">
+                  <td colSpan={6} className="py-2">
+                    <BomLineForm
+                      supportItems={supportItems}
+                      productUom={product.uom}
+                      initial={l}
+                      onCancel={() => setEditingId(null)}
+                      onSubmit={(payload) => submitEdit(l.id, payload)}
+                    />
+                  </td>
+                </tr>
+              ) : (
+                <tr key={l.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => setEditingId(l.id)}>
+                  <td className="py-1.5">{l.support_item.name}</td>
+                  <td className="py-1.5 text-right">{l.qty_per_unit}</td>
+                  <td className="py-1.5 text-right">{(l.wastage_pct * 100).toFixed(1)}</td>
+                  <td className="py-1.5 pr-3 text-right">{(l.markup_pct * 100).toFixed(1)}</td>
+                  <td className="py-1.5 pl-3">{l.role}</td>
+                  <td className="py-1.5 text-right">
+                    <button onClick={(e) => { e.stopPropagation(); removeLine(l.id); }} className="text-xs text-red-500 hover:underline">
+                      remove
+                    </button>
+                  </td>
+                </tr>
+              )
+            )}
           </tbody>
         </table>
       )}
 
       {adding && (
-        <form onSubmit={submit} className="mt-4 pt-4 border-t space-y-2">
-          <div className="flex gap-3 text-xs">
-            <label className="flex items-center gap-1">
-              <input type="radio" checked={mode === "existing"} onChange={() => setMode("existing")} /> Existing support item
-            </label>
-            <label className="flex items-center gap-1">
-              <input type="radio" checked={mode === "new"} onChange={() => setMode("new")} /> New support item
-            </label>
-          </div>
-          {mode === "existing" ? (
-            <select required value={supportItemId} onChange={(e) => setSupportItemId(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm">
-              <option value="">Select...</option>
-              {supportItems.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          ) : (
-            <div className="flex gap-2">
-              <input required placeholder="Name" value={newName} onChange={(e) => setNewName(e.target.value)} className="flex-1 border rounded-md px-2 py-1.5 text-sm" />
-              <input placeholder="UoM" value={newUom} onChange={(e) => setNewUom(e.target.value)} className="w-24 border rounded-md px-2 py-1.5 text-sm" />
-            </div>
-          )}
-          <div className="grid grid-cols-4 gap-2">
-            <Field label="Qty/unit" value={qty} onChange={(e) => setQty(e.target.value)} required />
-            <Field label="Wastage % (0.1 = 10%)" value={wastage} onChange={(e) => setWastage(e.target.value)} />
-            <Field label="Markup % (0.1 = 10%)" value={markup} onChange={(e) => setMarkup(e.target.value)} />
-            <div>
-              <label className="text-xs text-slate-500">Role</label>
-              <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm">
-                <option value="primary">primary</option>
-                <option value="fixing">fixing</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button disabled={saving} className="text-sm px-4 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
-              {saving ? "Saving..." : "Add BOM line"}
-            </button>
-            <button type="button" onClick={() => setAdding(false)} className="text-sm px-3 py-1.5 rounded-md border">Cancel</button>
-          </div>
-        </form>
+        <div className="mt-4 pt-4 border-t">
+          <BomLineForm
+            supportItems={supportItems}
+            productUom={product.uom}
+            onCancel={() => setAdding(false)}
+            onSubmit={submitNew}
+          />
+        </div>
       )}
     </div>
+  );
+}
+
+function BomLineForm({ supportItems, productUom, initial, onCancel, onSubmit }) {
+  const [mode, setMode] = useState("existing");
+  const [supportItemId, setSupportItemId] = useState(initial?.support_item_id ?? "");
+  const [newName, setNewName] = useState("");
+  const [newUom, setNewUom] = useState(productUom);
+  const [qty, setQty] = useState(initial?.qty_per_unit ?? "1");
+  const [wastage, setWastage] = useState(initial?.wastage_pct ?? "0");
+  const [markup, setMarkup] = useState(initial?.markup_pct ?? "0");
+  const [role, setRole] = useState(initial?.role ?? "fixing");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload = {
+        qty_per_unit: Number(qty),
+        wastage_pct: Number(wastage),
+        markup_pct: Number(markup),
+        role,
+        sort_order: initial?.sort_order ?? 0,
+      };
+      if (mode === "existing") payload.support_item_id = Number(supportItemId);
+      else {
+        payload.new_support_item_name = newName;
+        payload.new_support_item_uom = newUom;
+      }
+      await onSubmit(payload);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-2" onClick={(e) => e.stopPropagation()}>
+      {!initial && (
+        <div className="flex gap-3 text-xs">
+          <label className="flex items-center gap-1">
+            <input type="radio" checked={mode === "existing"} onChange={() => setMode("existing")} /> Existing support item
+          </label>
+          <label className="flex items-center gap-1">
+            <input type="radio" checked={mode === "new"} onChange={() => setMode("new")} /> New support item
+          </label>
+        </div>
+      )}
+      {mode === "existing" ? (
+        <select required value={supportItemId} onChange={(e) => setSupportItemId(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm">
+          <option value="">Select...</option>
+          {supportItems.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      ) : (
+        <div className="flex gap-2">
+          <input required placeholder="Name" value={newName} onChange={(e) => setNewName(e.target.value)} className="flex-1 border rounded-md px-2 py-1.5 text-sm" />
+          <input placeholder="UoM" value={newUom} onChange={(e) => setNewUom(e.target.value)} className="w-24 border rounded-md px-2 py-1.5 text-sm" />
+        </div>
+      )}
+      <div className="grid grid-cols-4 gap-2">
+        <Field label="Qty/unit" value={qty} onChange={(e) => setQty(e.target.value)} required />
+        <Field label="Wastage % (0.1 = 10%)" value={wastage} onChange={(e) => setWastage(e.target.value)} />
+        <Field label="Markup % (0.1 = 10%)" value={markup} onChange={(e) => setMarkup(e.target.value)} />
+        <div>
+          <label className="text-xs text-slate-500">Role</label>
+          <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm">
+            <option value="primary">primary</option>
+            <option value="fixing">fixing</option>
+          </select>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button disabled={saving} className="text-sm px-4 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
+          {saving ? "Saving..." : initial ? "Save line" : "Add BOM line"}
+        </button>
+        <button type="button" onClick={onCancel} className="text-sm px-3 py-1.5 rounded-md border">Cancel</button>
+      </div>
+    </form>
   );
 }

@@ -72,6 +72,12 @@ class ProductDetailOut(ProductOut):
     coverage_rate: Optional[CoverageRateOut] = None
 
 
+class ProductCostOut(BaseModel):
+    material_cost_per_unit: float
+    labor_cost_per_unit: float
+    needs_setup: bool
+
+
 class ProductIn(BaseModel):
     name: str
     uom: str
@@ -153,12 +159,40 @@ class ProjectLocationIn(BaseModel):
     sort_order: int = 0
 
 
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    username: str
+    is_admin: bool
+
+
+class UserIn(BaseModel):
+    username: str
+    password: str
+    is_admin: bool = False
+
+
+class LoginIn(BaseModel):
+    username: str
+    password: str
+
+
+class PasswordResetIn(BaseModel):
+    new_password: str
+
+
+class TokenOut(BaseModel):
+    access_token: str
+    user: UserOut
+
+
 class ProjectOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
     country_id: int
     country: CountryOut
+    owner: Optional[UserOut] = None
     client_name: Optional[str] = None
     address: Optional[str] = None
     estimator_name: Optional[str] = None
