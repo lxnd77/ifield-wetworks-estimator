@@ -69,7 +69,10 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
             "estimation_line_ids/remark": line.remark or "",
             "estimation_line_ids/drawing_no": line.drawing_no or "",
             "estimation_line_ids/product_uom_qty": line.qty,
-            "estimation_line_ids/material_cost": round(totals["material_total"], 2),
+            # material_cost (column AA) is left blank -- Odoo derives it
+            # automatically from the component BOM cost lines already in
+            # this export (columns L-Q), so populating it here would
+            # conflict with that calculation.
             "estimation_line_ids/wastage_percentage": round(avg_wastage * 100, 2),
             "estimation_line_ids/labor_cost": round(line.labor_cost_per_unit, 2),
             "estimation_line_ids/sales_value": round(totals["sales_value"], 2),
