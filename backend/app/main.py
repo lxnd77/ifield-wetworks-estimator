@@ -1,5 +1,8 @@
 import os
+import re
+import zipfile
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 from typing import List, Optional
 
@@ -11,7 +14,9 @@ from sqlalchemy.orm import Session, joinedload
 
 from . import models, schemas, service, auth, calc
 from .database import Base, engine, get_db
-from .export_excel import build_sale_estimation_workbook, build_bom_workbook
+from .export_excel import (
+    build_sale_estimation_workbook, build_bom_workbook, build_product_import_workbooks,
+)
 
 Base.metadata.create_all(bind=engine)
 
@@ -70,7 +75,10 @@ def reset_user_password(user_id: int, payload: schemas.PasswordResetIn, db: Sess
 # ---------------------------------------------------------------- products
 @app.get("/api/products", response_model=List[schemas.ProductOut])
 def list_products(category: Optional[str] = None, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
-    q = db.query(models.WetworksProduct).filter(models.WetworksProduct.active == True)
+    q = db.query(models.WetworksProduct).options(
+        joinedload(models.WetworksProduct.purchasing_company),
+        joinedload(models.WetworksProduct.default_vendor),
+    ).filter(models.WetworksProduct.active == True)
     if category:
         q = q.filter(models.WetworksProduct.category == category)
     return q.order_by(models.WetworksProduct.category, models.WetworksProduct.name).all()
@@ -81,6 +89,8 @@ def get_product(product_id: int, db: Session = Depends(get_db), user: models.Use
     p = db.query(models.WetworksProduct).options(
         joinedload(models.WetworksProduct.bom_lines).joinedload(models.BomLine.support_item),
         joinedload(models.WetworksProduct.coverage_rate),
+        joinedload(models.WetworksProduct.purchasing_company),
+        joinedload(models.WetworksProduct.default_vendor),
     ).get(product_id)
     if not p:
         raise HTTPException(404, "product not found")
@@ -146,7 +156,7 @@ def add_bom_line(product_id: int, payload: schemas.BomLineIn, db: Session = Depe
     line = models.BomLine(
         product_id=product_id, support_item_id=support_item_id,
         qty_per_unit=payload.qty_per_unit, wastage_pct=payload.wastage_pct,
-        markup_pct=payload.markup_pct, role=payload.role, sort_order=payload.sort_order,
+        role=payload.role, sort_order=payload.sort_order,
     )
     db.add(line)
     _refresh_needs_setup(db, p)
@@ -164,7 +174,6 @@ def update_bom_line(bom_line_id: int, payload: schemas.BomLineIn, db: Session = 
         line.support_item_id = payload.support_item_id
     line.qty_per_unit = payload.qty_per_unit
     line.wastage_pct = payload.wastage_pct
-    line.markup_pct = payload.markup_pct
     line.role = payload.role
     line.sort_order = payload.sort_order
     db.commit()
@@ -194,16 +203,145 @@ def _refresh_needs_setup(db: Session, product: models.WetworksProduct):
 # ---------------------------------------------------------------- support items
 @app.get("/api/support-items", response_model=List[schemas.SupportItemOut])
 def list_support_items(db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
-    return db.query(models.SupportItem).order_by(models.SupportItem.name).all()
+    return db.query(models.SupportItem).options(
+        joinedload(models.SupportItem.default_vendor)
+    ).order_by(models.SupportItem.name).all()
 
 
 @app.post("/api/support-items", response_model=schemas.SupportItemOut)
-def create_support_item(payload: schemas.SupportItemOut, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
-    si = models.SupportItem(name=payload.name, default_code=payload.default_code, uom=payload.uom)
+def create_support_item(payload: schemas.SupportItemIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    si = models.SupportItem(**payload.model_dump())
     db.add(si)
     db.commit()
     db.refresh(si)
     return si
+
+
+@app.put("/api/support-items/{support_item_id}", response_model=schemas.SupportItemOut)
+def update_support_item(support_item_id: int, payload: schemas.SupportItemIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    si = db.query(models.SupportItem).get(support_item_id)
+    if not si:
+        raise HTTPException(404, "support item not found")
+    for k, v in payload.model_dump().items():
+        setattr(si, k, v)
+    db.commit()
+    db.refresh(si)
+    return si
+
+
+# ---------------------------------------------------------------- vendors / purchasing / selling companies
+@app.get("/api/vendors", response_model=List[schemas.VendorOut])
+def list_vendors(db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    return db.query(models.Vendor).order_by(models.Vendor.name).all()
+
+
+@app.post("/api/vendors", response_model=schemas.VendorOut)
+def create_vendor(payload: schemas.VendorIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    if db.query(models.Vendor).filter(models.Vendor.name == payload.name).first():
+        raise HTTPException(400, f"vendor {payload.name} already exists")
+    v = models.Vendor(**payload.model_dump())
+    db.add(v)
+    db.commit()
+    db.refresh(v)
+    return v
+
+
+@app.put("/api/vendors/{vendor_id}", response_model=schemas.VendorOut)
+def update_vendor(vendor_id: int, payload: schemas.VendorIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    v = db.query(models.Vendor).get(vendor_id)
+    if not v:
+        raise HTTPException(404, "vendor not found")
+    for k, val in payload.model_dump().items():
+        setattr(v, k, val)
+    db.commit()
+    db.refresh(v)
+    return v
+
+
+@app.delete("/api/vendors/{vendor_id}")
+def delete_vendor(vendor_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    v = db.query(models.Vendor).get(vendor_id)
+    if not v:
+        raise HTTPException(404, "vendor not found")
+    db.delete(v)
+    db.commit()
+    return {"ok": True}
+
+
+@app.get("/api/purchasing-companies", response_model=List[schemas.PurchasingCompanyOut])
+def list_purchasing_companies(db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    return db.query(models.PurchasingCompany).order_by(models.PurchasingCompany.name).all()
+
+
+@app.post("/api/purchasing-companies", response_model=schemas.PurchasingCompanyOut)
+def create_purchasing_company(payload: schemas.PurchasingCompanyIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    if db.query(models.PurchasingCompany).filter(models.PurchasingCompany.name == payload.name).first():
+        raise HTTPException(400, f"purchasing company {payload.name} already exists")
+    pc = models.PurchasingCompany(**payload.model_dump())
+    db.add(pc)
+    db.commit()
+    db.refresh(pc)
+    return pc
+
+
+@app.put("/api/purchasing-companies/{purchasing_company_id}", response_model=schemas.PurchasingCompanyOut)
+def update_purchasing_company(purchasing_company_id: int, payload: schemas.PurchasingCompanyIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    pc = db.query(models.PurchasingCompany).get(purchasing_company_id)
+    if not pc:
+        raise HTTPException(404, "purchasing company not found")
+    for k, v in payload.model_dump().items():
+        setattr(pc, k, v)
+    db.commit()
+    db.refresh(pc)
+    return pc
+
+
+@app.delete("/api/purchasing-companies/{purchasing_company_id}")
+def delete_purchasing_company(purchasing_company_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    pc = db.query(models.PurchasingCompany).get(purchasing_company_id)
+    if not pc:
+        raise HTTPException(404, "purchasing company not found")
+    db.delete(pc)
+    db.commit()
+    return {"ok": True}
+
+
+@app.get("/api/selling-companies", response_model=List[schemas.SellingCompanyOut])
+def list_selling_companies(db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    return db.query(models.SellingCompany).order_by(models.SellingCompany.name).all()
+
+
+@app.post("/api/selling-companies", response_model=schemas.SellingCompanyOut)
+def create_selling_company(payload: schemas.SellingCompanyIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    if db.query(models.SellingCompany).filter(models.SellingCompany.name == payload.name).first():
+        raise HTTPException(400, f"selling company {payload.name} already exists")
+    sc = models.SellingCompany(**payload.model_dump())
+    db.add(sc)
+    db.commit()
+    db.refresh(sc)
+    return sc
+
+
+@app.put("/api/selling-companies/{selling_company_id}", response_model=schemas.SellingCompanyOut)
+def update_selling_company(selling_company_id: int, payload: schemas.SellingCompanyIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    sc = db.query(models.SellingCompany).get(selling_company_id)
+    if not sc:
+        raise HTTPException(404, "selling company not found")
+    for k, v in payload.model_dump().items():
+        setattr(sc, k, v)
+    db.commit()
+    db.refresh(sc)
+    return sc
+
+
+@app.delete("/api/selling-companies/{selling_company_id}")
+def delete_selling_company(selling_company_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    sc = db.query(models.SellingCompany).get(selling_company_id)
+    if not sc:
+        raise HTTPException(404, "selling company not found")
+    db.delete(sc)
+    db.commit()
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------- countries
@@ -287,6 +425,7 @@ def _get_owned_project(db: Session, project_id: int, user: models.User, options=
 def list_projects(db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     return _owned_project_query(db, user).options(
         joinedload(models.Project.country),
+        joinedload(models.Project.selling_company),
         joinedload(models.Project.owner),
         joinedload(models.Project.locations),
     ).order_by(models.Project.created_at.desc()).all()
@@ -296,6 +435,7 @@ def list_projects(db: Session = Depends(get_db), user: models.User = Depends(aut
 def get_project(project_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     return _get_owned_project(db, project_id, user, options=[
         joinedload(models.Project.country),
+        joinedload(models.Project.selling_company),
         joinedload(models.Project.owner),
         joinedload(models.Project.locations),
     ])
@@ -369,7 +509,8 @@ def list_estimate_lines(project_id: int, db: Session = Depends(get_db), user: mo
     db.commit()
     return db.query(models.EstimateLine).options(
         joinedload(models.EstimateLine.product),
-        joinedload(models.EstimateLine.components).joinedload(models.EstimateLineComponent.support_item),
+        joinedload(models.EstimateLine.components).joinedload(models.EstimateLineComponent.support_item)
+        .joinedload(models.SupportItem.default_vendor),
     ).filter(models.EstimateLine.project_id == project_id).all()
 
 
@@ -413,6 +554,19 @@ def delete_estimate_line(line_id: int, db: Session = Depends(get_db), user: mode
     return {"ok": True}
 
 
+@app.put("/api/estimate-line-components/{component_id}/code", response_model=schemas.EstimateLineComponentOut)
+def set_estimate_line_component_code(component_id: int, payload: schemas.EstimateLineComponentCodeIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    comp = db.query(models.EstimateLineComponent).options(
+        joinedload(models.EstimateLineComponent.estimate_line).joinedload(models.EstimateLine.project)
+    ).get(component_id)
+    if not comp or (not user.is_admin and comp.estimate_line.project.owner_id != user.id):
+        raise HTTPException(404, "estimate line component not found")
+    comp.item_code = payload.item_code
+    db.commit()
+    db.refresh(comp)
+    return comp
+
+
 @app.get("/api/projects/{project_id}/summary")
 def project_summary(project_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     project = _get_owned_project(db, project_id, user, options=[
@@ -438,7 +592,7 @@ def project_product_costs(project_id: int, db: Session = Depends(get_db), user: 
     ).filter(models.WetworksProduct.active == True).all()
     result = {}
     for p in products:
-        material = calc.compute_material_cost(p.bom_lines, price_lookup)
+        material = calc.compute_material_cost(p.bom_lines, price_lookup, p.consumable_pct, p.ohp_pct)
         labor = calc.compute_labor_cost(p.coverage_rate, project.country, project.duration_months)
         result[p.id] = schemas.ProductCostOut(
             material_cost_per_unit=material.cost_per_unit,
@@ -471,12 +625,44 @@ def export_bom(project_id: int, db: Session = Depends(get_db), user: models.User
     )
 
 
+@app.get("/api/projects/{project_id}/export/product-import")
+def export_product_import(project_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    project = _load_project_for_export(db, project_id, user)
+    workbooks = build_product_import_workbooks(db, project)
+
+    zip_buf = BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        used_names = set()
+        for company_name, wb_buf in workbooks:
+            base = re.sub(r'[\\/*?:\[\]]', "_", company_name).strip() or "Company"
+            name = f"{base}.xlsx"
+            n = 2
+            while name in used_names:
+                name = f"{base} ({n}).xlsx"
+                n += 1
+            used_names.add(name)
+            zf.writestr(name, wb_buf.getvalue())
+    zip_buf.seek(0)
+
+    filename = f"Product_Import_{project.name.replace(' ', '_')}.zip"
+    return StreamingResponse(
+        zip_buf, media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 def _load_project_for_export(db: Session, project_id: int, user: models.User) -> models.Project:
     project = _get_owned_project(db, project_id, user, options=[
-        joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.product),
+        joinedload(models.Project.selling_company),
+        joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.product)
+        .joinedload(models.WetworksProduct.purchasing_company),
+        joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.product)
+        .joinedload(models.WetworksProduct.default_vendor),
+        joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.product)
+        .joinedload(models.WetworksProduct.bom_lines),
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.location),
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.components).joinedload(
-            models.EstimateLineComponent.support_item),
+            models.EstimateLineComponent.support_item).joinedload(models.SupportItem.default_vendor),
     ])
     _recompute_all_lines(db, project)
     db.commit()

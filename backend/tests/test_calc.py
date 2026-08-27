@@ -55,17 +55,31 @@ def test_shorter_duration_raises_labor_cost():
 
 def test_material_cost_matches_estimate_form_formula():
     # Floor GVT Tile 60x120: unit_price=13.5, wastage=10%, CMBL=15%, OH=10%
-    bom_line = SimpleNamespace(qty_per_unit=1.0, wastage_pct=0.1, markup_pct=0.25,
+    # (product-level, applied to the primary line only)
+    bom_line = SimpleNamespace(qty_per_unit=1.0, wastage_pct=0.1, role="primary",
                                 support_item_id=1, support_item=None)
-    result = compute_material_cost([bom_line], lambda sid: 13.5)
+    result = compute_material_cost([bom_line], lambda sid: 13.5, consumable_pct=0.15, ohp_pct=0.1)
     assert abs(result.cost_per_unit - 18.5625) < 1e-9
+
+
+def test_material_cost_markup_applies_to_primary_line_only():
+    """Consumable%/OHP% are product-level but must only load onto the
+    primary material -- a fixing line (screws, tape, etc.) shouldn't pick up
+    a markup meant for the primary material."""
+    primary = SimpleNamespace(qty_per_unit=1.0, wastage_pct=0.0, role="primary",
+                               support_item_id=1, support_item=None)
+    fixing = SimpleNamespace(qty_per_unit=1.0, wastage_pct=0.0, role="fixing",
+                              support_item_id=2, support_item=None)
+    result = compute_material_cost([primary, fixing], lambda sid: 10.0, consumable_pct=0.15, ohp_pct=0.1)
+    assert abs(result.components[0].cost_per_unit - 12.5) < 1e-9  # 10 * 1.25
+    assert abs(result.components[1].cost_per_unit - 10.0) < 1e-9  # no markup
 
 
 def test_material_cost_sums_multiple_bom_lines():
     lines = [
-        SimpleNamespace(qty_per_unit=1 / 130, wastage_pct=0.0, markup_pct=0.0, support_item_id=1, support_item=None),
-        SimpleNamespace(qty_per_unit=1 / 35, wastage_pct=0.0, markup_pct=0.0, support_item_id=2, support_item=None),
-        SimpleNamespace(qty_per_unit=1 / 65, wastage_pct=0.0, markup_pct=0.0, support_item_id=3, support_item=None),
+        SimpleNamespace(qty_per_unit=1 / 130, wastage_pct=0.0, role="fixing", support_item_id=1, support_item=None),
+        SimpleNamespace(qty_per_unit=1 / 35, wastage_pct=0.0, role="fixing", support_item_id=2, support_item=None),
+        SimpleNamespace(qty_per_unit=1 / 65, wastage_pct=0.0, role="fixing", support_item_id=3, support_item=None),
     ]
     prices = {1: 14.756756756756756, 2: 15.070270270270269, 3: 46.486486486486484}
     result = compute_material_cost(lines, lambda sid: prices[sid])

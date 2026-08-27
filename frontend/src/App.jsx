@@ -9,6 +9,8 @@ import AdminProductDetail from "./pages/AdminProductDetail";
 import AdminCountries from "./pages/AdminCountries";
 import AdminCountryDetail from "./pages/AdminCountryDetail";
 import AdminUsers from "./pages/AdminUsers";
+import AdminSupportItems from "./pages/AdminSupportItems";
+import AdminSettings from "./pages/AdminSettings";
 
 export default function App() {
   return (
@@ -20,8 +22,10 @@ export default function App() {
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/admin/products" element={<AdminProducts />} />
           <Route path="/admin/products/:id" element={<AdminProductDetail />} />
+          <Route path="/admin/support-items" element={<AdminSupportItems />} />
           <Route path="/admin/countries" element={<AdminCountries />} />
           <Route path="/admin/countries/:id" element={<AdminCountryDetail />} />
+          <Route path="/admin/settings" element={<AdminSettings />} />
           <Route path="/admin/users" element={<AdminUsers />} />
         </Route>
       </Route>

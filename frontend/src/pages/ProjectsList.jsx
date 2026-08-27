@@ -7,12 +7,14 @@ export default function ProjectsList() {
   const currentUser = useCurrentUser();
   const [projects, setProjects] = useState([]);
   const [countries, setCountries] = useState([]);
+  const [sellingCompanies, setSellingCompanies] = useState([]);
   const [showNew, setShowNew] = useState(false);
   const navigate = useNavigate();
 
   const load = () => {
     api.get("/projects").then((r) => setProjects(r.data));
     api.get("/countries").then((r) => setCountries(r.data));
+    api.get("/selling-companies").then((r) => setSellingCompanies(r.data));
   };
   useEffect(load, []);
 
@@ -41,9 +43,12 @@ export default function ProjectsList() {
             key={p.id}
             className="bg-white border rounded-lg p-4 hover:shadow-md transition block"
           >
-            <div className="font-medium text-slate-800">{p.name}</div>
+            <div className="font-medium text-slate-800">
+              {p.name} {p.code && <span className="text-slate-400 font-normal">({p.code})</span>}
+            </div>
             <div className="text-xs text-slate-400 mt-1">
               {p.country?.name} &middot; {p.start_date} &rarr; {p.end_date}
+              {p.selling_company && <> &middot; sold via {p.selling_company.name}</>}
             </div>
             {p.client_name && <div className="text-xs text-slate-500 mt-2">Client: {p.client_name}</div>}
             {currentUser?.is_admin && p.owner && (
@@ -56,6 +61,7 @@ export default function ProjectsList() {
       {showNew && (
         <NewProjectModal
           countries={countries}
+          sellingCompanies={sellingCompanies}
           onClose={() => setShowNew(false)}
           onCreated={(id) => navigate(`/projects/${id}`)}
         />
@@ -64,10 +70,12 @@ export default function ProjectsList() {
   );
 }
 
-function NewProjectModal({ countries, onClose, onCreated }) {
+function NewProjectModal({ countries, sellingCompanies, onClose, onCreated }) {
   const [form, setForm] = useState({
     name: "",
+    code: "",
     country_id: countries[0]?.id || "",
+    selling_company_id: "",
     client_name: "",
     estimator_name: "",
     start_date: "",
@@ -84,7 +92,12 @@ function NewProjectModal({ countries, onClose, onCreated }) {
     setSaving(true);
     setError("");
     try {
-      const payload = { ...form, country_id: Number(form.country_id), default_margin_pct: Number(form.default_margin_pct) };
+      const payload = {
+        ...form,
+        country_id: Number(form.country_id),
+        selling_company_id: form.selling_company_id ? Number(form.selling_company_id) : null,
+        default_margin_pct: Number(form.default_margin_pct),
+      };
       const res = await api.post("/projects", payload);
       onCreated(res.data.id);
     } catch (err) {
@@ -98,15 +111,30 @@ function NewProjectModal({ countries, onClose, onCreated }) {
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-20 p-4">
       <form onSubmit={submit} className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-3">
         <h2 className="text-lg font-semibold text-slate-800">New project</h2>
-        <div>
-          <label className="text-xs text-slate-500">Project name</label>
-          <input required value={form.name} onChange={set("name")} className="w-full border rounded-md px-3 py-2 text-sm" />
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-2">
+            <label className="text-xs text-slate-500">Project name</label>
+            <input required value={form.name} onChange={set("name")} className="w-full border rounded-md px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">Code</label>
+            <input value={form.code} onChange={set("code")} placeholder="e.g. FLH" className="w-full border rounded-md px-3 py-2 text-sm" />
+          </div>
         </div>
         <div>
           <label className="text-xs text-slate-500">Country</label>
           <select required value={form.country_id} onChange={set("country_id")} className="w-full border rounded-md px-3 py-2 text-sm">
             {countries.map((c) => (
               <option key={c.id} value={c.id}>{c.name}{c.is_template ? " (template - needs data)" : ""}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-slate-500">Selling company</label>
+          <select value={form.selling_company_id} onChange={set("selling_company_id")} className="w-full border rounded-md px-3 py-2 text-sm">
+            <option value="">--</option>
+            {sellingCompanies.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </div>

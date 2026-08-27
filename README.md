@@ -65,14 +65,18 @@ duration:
 ### Material cost
 
 Every product has a **BOM** (bill of material): one or more Support Items,
-each with a quantity needed per 1 unit of the product, a wastage %, and an
-optional markup % (historically "CMBL%" + overhead % in the source sheet, which
-applied to the primary material only). Each Support Item has its own
-**country-specific unit price**.
+each with a quantity needed per 1 unit of the product, a wastage %, and a
+role (`primary` or `fixing`). Each Support Item has its own
+**country-specific unit price**. The product itself carries **Consumable %**
+(CMBL%) and **OHP %** (overhead %) -- historically a single combined "markup
+%" in the source sheet, tracked here as two product-level fields matching how
+the Estimate Form actually recorded them -- applied only to the product's
+`primary` BOM line(s), never to `fixing` lines (screws, tape, etc.).
 
 ```
 material_cost_per_unit = sum over BOM lines of:
-    qty_per_unit * (1 + wastage_pct) * unit_price(support_item, country) * (1 + markup_pct)
+    qty_per_unit * (1 + wastage_pct) * unit_price(support_item, country)
+        * (1 + consumable_pct + ohp_pct if role == "primary" else 1)
 ```
 
 Most products (Tile, Paint, False Ceiling, Punning, Dry Wall, IPS, Plaster) use
@@ -153,11 +157,12 @@ worth discussing rather than a workaround.
 ## Configuring a "needs setup" product
 
 Open **Products → (product)**. Set a **Coverage rate** (primary coverage/day,
-optional secondary/grouting coverage/day, in-house/local crew counts) and add
-**BOM lines** (pick or create a Support Item, set qty/unit, wastage %, markup
-%). Once both exist, the product's "needs setup" flag clears automatically and
-it prices normally in every country (once that country has prices for its
-support items).
+optional secondary/grouting coverage/day, in-house/local crew counts), a
+**Material markup** (Consumable %/OHP %, applied to the primary BOM line),
+and add **BOM lines** (pick or create a Support Item, set qty/unit, wastage
+%, role). Once a coverage rate and at least one BOM line exist, the product's
+"needs setup" flag clears automatically and it prices normally in every
+country (once that country has prices for its support items).
 
 ## Exporting to Odoo
 

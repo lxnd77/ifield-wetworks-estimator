@@ -1,5 +1,5 @@
-"""Generates the two Odoo import workbooks, matching the exact column
-structure of the sample files the app must feed:
+"""Generates the Odoo import workbooks, matching the exact column structure
+of the sample files the app must feed:
   - Sale_Estimation_sale.estimation.xlsx  (one workbook per project = one
     sale.estimation record, one estimation_line per EstimateLine, exploded
     into its BOM components as sale_estimation_component_product_line_ids)
@@ -7,11 +7,21 @@ structure of the sample files the app must feed:
     standardized product only, e.g. "Wall Paint- caprol" -- with its BOM
     lines showing the per-unit recipe. Location is not baked into the name,
     and `reference` is left blank for the importing team to fill in.)
+  - Product_Import_<project>.zip (one .xlsx per participating company --
+    see build_product_import_workbooks's docstring for the placement rules)
 
 Only fields this app actually models are populated; Odoo-specific fields we
-don't track (assigned_to/user, cost_center_type, dimension) are left blank
-for the importing team to fill in if needed -- Odoo's xlsx import matches by
-header text, not column position, so blank/omitted values are safe.
+don't track (assigned_to/user, cost_center_type, dimension on the sale
+estimation sheet) are left blank for the importing team to fill in if
+needed -- Odoo's xlsx import matches by header text, not column position,
+so blank/omitted values are safe.
+
+The sale estimation sheet's product_id columns and the product import
+sheet's own "id" column get the Odoo external id populated alongside them,
+from WetworksProduct.odoo_id / SupportItem.odoo_id, whenever that's been set
+-- blank otherwise. That's what lets Odoo match an existing record instead
+of creating a duplicate or relying on name matching. The BOM sheet does not
+carry id columns -- it only ever references products/support items by name.
 """
 from io import BytesIO
 import openpyxl
@@ -22,11 +32,12 @@ SALE_ESTIMATION_HEADERS = [
     "estimation_type_id", "project_estimation_id", "costing_type", "source_pricelist_id",
     "destination_pricelist_id", "description", "estimation_date", "delivery_date", "responsible",
     "apply_margin_percentage", "estimation_line_ids/product_id",
+    "estimation_line_ids/product_id/id",
     "estimation_line_ids/sale_estimation_component_product_line_ids/product_id",
+    "estimation_line_ids/sale_estimation_component_product_line_ids/product_id/id",
     "estimation_line_ids/sale_estimation_component_product_line_ids/default_code",
     "estimation_line_ids/sale_estimation_component_product_line_ids/user",
     "estimation_line_ids/sale_estimation_component_product_line_ids/product_uom_qty",
-    "estimation_line_ids/sale_estimation_component_product_line_ids/cost_price",
     "estimation_line_ids/sale_estimation_component_product_line_ids/dimension",
     "estimation_line_ids/assigned_to", "estimation_line_ids/description",
     "estimation_line_ids/cost_center_type", "estimation_line_ids/default_code",
@@ -37,15 +48,47 @@ SALE_ESTIMATION_HEADERS = [
     "estimation_line_ids/labor_cost", "estimation_line_ids/other_cost_percentage",
     "estimation_line_ids/other_cost", "estimation_line_ids/freight_cost_percentage",
     "estimation_line_ids/freight_cost", "estimation_line_ids/overhead_cost_percentage",
-    "estimation_line_ids/overhead_cost", "estimation_line_ids/sales_value",
-    "estimation_line_ids/margin_percentage",
+    "estimation_line_ids/overhead_cost", "estimation_line_ids/margin_percentage",
 ]
 
-BOM_HEADERS = ["product", "reference", "product_qty", "bom_line_ids/product_id", "bom_line_ids/product_qty"]
+# company_id is always left blank -- the importing team fills it in per the
+# target Odoo company, this app has no single company to assign per mrp.bom.
+BOM_HEADERS = [
+    "product", "reference", "product_qty", "company_id",
+    "bom_line_ids/product_id", "bom_line_ids/product_qty",
+]
+
+# Odoo's standard product.template xlsx-import convention: header text drives
+# the match, not column position, same as the two exports above. One vendor
+# per row is all the product-import sheet needs (seller_ids is a one2many,
+# but a single value here creates a single vendor pricelist line) -- see
+# build_product_import_workbooks's docstring for how that vendor is chosen
+# per row. "id" is populated from the product's/support item's odoo_id when
+# set (so the row updates that existing Odoo record) and left blank
+# otherwise -- Odoo assigns it on first import; a blank "id" row that's
+# actually a re-import of something already in Odoo will create a duplicate
+# instead of updating it, so fill in odoo_id (via the API/admin screens)
+# once it's known. "standard_price" is populated only on BOM component
+# (support item) rows, from that country's material price for the item --
+# finished-product rows (Manufacture or Buy line items) are left blank since
+# the app doesn't track a standalone purchase price for them.
+PRODUCT_IMPORT_HEADERS = [
+    "id", "name", "default_code", "seller_ids/partner_id", "route_ids",
+    "purchase_method", "invoice_policy", "detailed_type", "standard_price",
+]
 
 
 def line_virtual_product_name(line: models.EstimateLine) -> str:
     return line.product.name
+
+
+def reference_code(project: models.Project, item_code) -> str:
+    """Project code + user-entered item code, e.g. "FLH PT-01". No item code
+    means no reference at all -- a project code alone isn't a usable Odoo
+    product reference, so it's left blank rather than half-built."""
+    if not item_code:
+        return ""
+    return f"{project.code} {item_code}" if project.code else item_code
 
 
 def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
@@ -64,6 +107,7 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
 
         line_header = {
             "estimation_line_ids/product_id": line_virtual_product_name(line),
+            "estimation_line_ids/product_id/id": line.product.odoo_id or "",
             "estimation_line_ids/description": line.product.name,
             "estimation_line_ids/location": line.location.name,
             "estimation_line_ids/remark": line.remark or "",
@@ -75,8 +119,7 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
             # conflict with that calculation.
             "estimation_line_ids/wastage_percentage": round(avg_wastage * 100, 2),
             "estimation_line_ids/labor_cost": round(line.labor_cost_per_unit, 2),
-            "estimation_line_ids/sales_value": round(totals["sales_value"], 2),
-            "estimation_line_ids/margin_percentage": round(totals["margin_pct"], 2),
+            "estimation_line_ids/margin_percentage": round(totals["margin_pct"] / 100, 4),
         }
         components = line.components or []
         if not components:
@@ -113,9 +156,12 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
                 row.update(line_header)
             row.update({
                 "estimation_line_ids/sale_estimation_component_product_line_ids/product_id": comp.support_item.name,
+                "estimation_line_ids/sale_estimation_component_product_line_ids/product_id/id": comp.support_item.odoo_id or "",
                 "estimation_line_ids/sale_estimation_component_product_line_ids/default_code": comp.support_item.default_code or "",
-                "estimation_line_ids/sale_estimation_component_product_line_ids/product_uom_qty": round(comp.qty, 4),
-                "estimation_line_ids/sale_estimation_component_product_line_ids/cost_price": round(comp.unit_cost, 4),
+                # comp.qty is the total across the line's full qty
+                # (qty_per_unit * line.qty); Odoo wants the per-unit rate.
+                "estimation_line_ids/sale_estimation_component_product_line_ids/product_uom_qty":
+                    round(comp.qty / line.qty, 6) if line.qty else 0,
             })
             ws.append([row[h] for h in SALE_ESTIMATION_HEADERS])
 
@@ -125,23 +171,140 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
     return buf
 
 
+def build_product_import_workbooks(db, project: models.Project) -> list:
+    """One workbook per participating company -- the project's selling
+    company plus every distinct purchasing company used by its line items'
+    products -- for importing product.template records into Odoo. Returns a
+    list of (company_name, BytesIO) pairs, one per company that ended up
+    with at least one row.
+
+    Placement rules -- a line item's product is what's manufactured (or
+    bought whole) by its purchasing company, then bought from there by the
+    selling company for resale to the client.
+      - Manufacture line (product has >=1 BOM lines): the finished product
+        gets a row ONLY on the selling company's workbook, as Manufacture,
+        with NO vendor (it's assembled in-house, not bought from anyone --
+        the line item itself is never placed on the purchasing company's
+        workbook either -- only its exploded components are). Each exploded
+        BOM component gets a row on BOTH the
+        purchasing company's workbook (Buy, vendor = the support item's own
+        default vendor -- who the purchasing company actually buys the raw
+        material from) and the selling company's workbook (Buy, vendor =
+        the purchasing company -- the selling company only ever deals with
+        the purchasing company, never the raw-material vendor directly).
+      - Buy line (product has no BOM lines): the product gets a row on
+        BOTH the purchasing company's workbook (Buy, vendor = the product's
+        own default vendor) and the selling company's workbook (Buy,
+        vendor = the purchasing company).
+
+    A line whose product has no purchasing company set only gets its
+    selling-side row (there's no purchasing workbook to place components or
+    the Buy-line row in). If the project has no selling company set,
+    Buy lines and BOM components still get their purchasing-side row, but
+    Manufacture line items get no row anywhere (they only ever go on the
+    selling sheet).
+    """
+    sheets: dict = {}
+
+    def sheet_for(company):
+        # Keyed by (model class, id) -- PurchasingCompany and SellingCompany
+        # are separate tables with independent id sequences, so a bare id
+        # would collide two unrelated companies that happen to share a
+        # numeric id (e.g. both id=1) into the same workbook.
+        if company is None:
+            return None
+        key = (type(company), company.id)
+        if key not in sheets:
+            sheets[key] = {"name": company.name, "rows": [], "seen": set()}
+        return sheets[key]
+
+    def add_row(sheet, key, name, default_code, vendor_name, is_manufacture, odoo_id=None, standard_price=""):
+        if sheet is None or key in sheet["seen"]:
+            return
+        sheet["seen"].add(key)
+        route = "Manufacture,Replenish on Order (MTO)" if is_manufacture else "Buy,Replenish on Order (MTO)"
+        sheet["rows"].append([
+            odoo_id or "", name, default_code, vendor_name, route,
+            "On ordered quantities", "Ordered quantities", "Storable Product", standard_price,
+        ])
+
+    selling_sheet = sheet_for(project.selling_company)
+
+    for line in project.estimate_lines:
+        product = line.product
+        purchasing_sheet = sheet_for(product.purchasing_company)
+        purchasing_company_name = product.purchasing_company.name if product.purchasing_company else ""
+        is_manufacture = bool(product.bom_lines)
+
+        line_key = ("product", product.id, line.item_code)
+        line_default_code = reference_code(project, line.item_code)
+        line_vendor = "" if is_manufacture else purchasing_company_name
+        add_row(selling_sheet, line_key, product.name, line_default_code,
+                line_vendor, is_manufacture, odoo_id=product.odoo_id)
+
+        if is_manufacture:
+            for comp in line.components:
+                support_item = comp.support_item
+                vendor_name = support_item.default_vendor.name if support_item.default_vendor else ""
+                key = ("support_item", support_item.id, comp.item_code)
+                comp_default_code = reference_code(project, comp.item_code)
+                standard_price = round(comp.unit_cost, 4)
+                add_row(purchasing_sheet, key, support_item.name,
+                        comp_default_code, vendor_name, False,
+                        odoo_id=support_item.odoo_id, standard_price=standard_price)
+                add_row(selling_sheet, key, support_item.name,
+                        comp_default_code, purchasing_company_name, False,
+                        odoo_id=support_item.odoo_id, standard_price=standard_price)
+        else:
+            purchasing_vendor = product.default_vendor.name if product.default_vendor else ""
+            add_row(purchasing_sheet, line_key, product.name, line_default_code,
+                    purchasing_vendor, is_manufacture, odoo_id=product.odoo_id)
+
+    workbooks = []
+    for sheet in sheets.values():
+        if not sheet["rows"]:
+            continue
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Sheet1"
+        ws.append(PRODUCT_IMPORT_HEADERS)
+        for row in sheet["rows"]:
+            ws.append(row)
+        buf = BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        workbooks.append((sheet["name"], buf))
+
+    return workbooks
+
+
 def build_bom_workbook(db, project: models.Project) -> BytesIO:
+    """One mrp.bom per unique (product, item_code) pair -- the same product
+    used across multiple locations/lines with the same item code is the same
+    Odoo product, so it only needs one BOM entry; a different item code
+    makes it a distinct product reference and earns its own entry."""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Sheet1"
     ws.append(BOM_HEADERS)
 
+    seen = set()
     for line in project.estimate_lines:
+        key = (line.product_id, line.item_code)
+        if key in seen:
+            continue
+        seen.add(key)
+
         product_name = line_virtual_product_name(line)
         reference = ""
         bom_lines = line.product.bom_lines
         if not bom_lines:
-            ws.append([product_name, reference, 1, "", ""])
+            ws.append([product_name, reference, 1, "", "", ""])
             continue
         for i, b in enumerate(bom_lines):
             qty = b.qty_per_unit * (1 + (b.wastage_pct or 0))
             row = [product_name if i == 0 else "", reference if i == 0 else "",
-                   1 if i == 0 else "", b.support_item.name, round(qty, 6)]
+                   1 if i == 0 else "", "", b.support_item.name, round(qty, 6)]
             ws.append(row)
 
     buf = BytesIO()

@@ -126,7 +126,8 @@ PRODUCT_COVERAGE_MAP = {
 }
 
 # product_name -> (unit_price_usd, wastage_pct, cmbl_pct, oh_pct) from the Estimate Form.
-# markup_pct stored on the BOM line = cmbl_pct + oh_pct.
+# cmbl_pct/oh_pct become WetworksProduct.consumable_pct/ohp_pct, applied to
+# the primary BOM line only.
 PRODUCT_MATERIAL_MAP = {
     "Floor GVT Tile 60 X120": (13.5, 0.1, 0.15, 0.1),
     "Floor GVT Tile 60 X60": (13.5, 0.1, 0.15, 0.1),

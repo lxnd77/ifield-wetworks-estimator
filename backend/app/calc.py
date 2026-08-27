@@ -5,8 +5,8 @@ Reproduces, in generalized/parameterized form, the two source workbooks:
     coverage/day + crew headcount + country wage & expense parameters +
     project duration)
   - INT_COST_SHEET (material cost per unit, driven by a BOM recipe of
-    support items, each with its own wastage% and an optional markup%
-    for CMBL/overhead that historically applied to the primary material)
+    support items, each with its own wastage%, plus the product's own
+    Consumable%/OHP% markup applied to its primary material line)
 
 All monetary internal computation happens in USD. Country records store
 figures in their natural local currency plus an fx rate to USD so admins
@@ -39,16 +39,21 @@ class LaborResult:
     breakdown: dict = field(default_factory=dict)
 
 
-def compute_material_cost(bom_lines, price_lookup) -> MaterialResult:
+def compute_material_cost(bom_lines, price_lookup, consumable_pct: float = 0.0, ohp_pct: float = 0.0) -> MaterialResult:
     """bom_lines: iterable of BomLine ORM objects (with .support_item loaded).
     price_lookup: callable(support_item_id) -> unit_price_usd
+    consumable_pct/ohp_pct: the product's CMBL%/overhead%, applied only to
+    its primary material line(s) -- matches the source Estimate Form, where
+    this markup was product-level, not per BOM line.
     """
+    markup = (consumable_pct or 0) + (ohp_pct or 0)
     components = []
     total = 0.0
     for line in bom_lines:
         qty_with_wastage = line.qty_per_unit * (1 + (line.wastage_pct or 0))
         unit_price = price_lookup(line.support_item_id)
-        cost = qty_with_wastage * unit_price * (1 + (line.markup_pct or 0))
+        line_markup = markup if line.role == "primary" else 0.0
+        cost = qty_with_wastage * unit_price * (1 + line_markup)
         components.append(ComponentCost(
             support_item_id=line.support_item_id,
             support_item_name=line.support_item.name if line.support_item else "",

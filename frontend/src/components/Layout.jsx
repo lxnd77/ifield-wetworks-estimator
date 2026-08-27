@@ -30,7 +30,9 @@ export default function Layout() {
           <nav className="flex items-center gap-1">
             <NavLink to="/" end className={navItem}>Projects</NavLink>
             <NavLink to="/admin/products" className={navItem}>Products</NavLink>
+            <NavLink to="/admin/support-items" className={navItem}>BOM Items</NavLink>
             <NavLink to="/admin/countries" className={navItem}>Countries</NavLink>
+            <NavLink to="/admin/settings" className={navItem}>Settings</NavLink>
             {user?.is_admin && <NavLink to="/admin/users" className={navItem}>Users</NavLink>}
             <div className="flex items-center gap-2 pl-3 ml-2 border-l border-ink/15">
               <span className="text-xs text-ink/50">{user?.username}</span>
