@@ -1,0 +1,4331 @@
+{
+  "vendors": [
+    {
+      "id": 1,
+      "name": "Gypsemna Company L.L.C.",
+      "notes": "GYPSUM"
+    },
+    {
+      "id": 2,
+      "name": "Morbi Tile",
+      "notes": "TILE"
+    },
+    {
+      "id": 5,
+      "name": "Sri Sai Kripa Stones",
+      "notes": null
+    },
+    {
+      "id": 6,
+      "name": "Default China Vendor",
+      "notes": null
+    },
+    {
+      "id": 7,
+      "name": "Jotun Dubai",
+      "notes": null
+    },
+    {
+      "id": 8,
+      "name": "SKD India Impex",
+      "notes": null
+    },
+    {
+      "id": 9,
+      "name": "Lizzart Granito LLP",
+      "notes": null
+    }
+  ],
+  "purchasing_companies": [
+    {
+      "id": 1,
+      "name": "I FIELD FURNISHING TRADING LLC",
+      "country_name": "UAE",
+      "notes": "Gypsum & Paint"
+    },
+    {
+      "id": 2,
+      "name": "I FIELD INTERNATIONAL PRIVATE LIMITED",
+      "country_name": "India",
+      "notes": "Tile & Stone"
+    },
+    {
+      "id": 3,
+      "name": "GUANGZHOU DAKA TRADING CO.,LTD",
+      "country_name": "China",
+      "notes": "Loose Furn, Fixed Furn, Etc."
+    }
+  ],
+  "selling_companies": [
+    {
+      "id": 1,
+      "name": "I FIELD LIMITED HONGKONG",
+      "country_name": "Hong Kong",
+      "notes": null
+    },
+    {
+      "id": 2,
+      "name": "I FIELD FURNISHING TRADING LLC",
+      "country_name": "UAE",
+      "notes": null
+    }
+  ],
+  "countries": [
+    {
+      "id": 1,
+      "name": "Saudi Arabia",
+      "code": "KSA",
+      "is_active": true,
+      "is_template": false,
+      "site_currency_code": "SAR",
+      "site_fx_rate_to_usd": 3.75,
+      "inhouse_labor_currency_code": "INR",
+      "inhouse_fx_rate_to_usd": 94.0,
+      "local_labor_currency_code": "SAR",
+      "local_fx_rate_to_usd": 3.75,
+      "material_currency_code": "USD",
+      "material_fx_rate_to_usd": 1.0,
+      "working_days_per_month": 26.0,
+      "wages_oh_rate_pct": 0.15,
+      "food_per_month_local": 900.0,
+      "accommodation_per_month_local": 550.0,
+      "local_travel_per_month_local": 90.0,
+      "air_ticket_per_year_local": 1800.0,
+      "visa_per_year_local": 13800.0,
+      "other_allowance_per_day_usd": 0.5,
+      "notes": "Seeded from the 'Khadar Villa' KSA sample workbooks (LBR Rate Calculation + INT_COST_SHEET)."
+    }
+  ],
+  "wetworks_products": [
+    {
+      "id": 1,
+      "name": "Floor GVT Tile 60 X120",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.15,
+      "ohp_pct": 0.1
+    },
+    {
+      "id": 2,
+      "name": "Floor GVT Tile 60 X60",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 3,
+      "name": "Floor GVT Tile 60 X30",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 4,
+      "name": "Skirting GVT Tile 60X120",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.5,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 5,
+      "name": "Skirting GVT Tile 30 X60",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.5,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 6,
+      "name": "Floor Ceramic Tile 60 X30",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 7,
+      "name": "Skirting Ceramic 60X 30",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.5,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 8,
+      "name": "Floor Ceramic Tile 30 X30",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 9,
+      "name": "Skirting Ceramic 30X 30",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.5,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 10,
+      "name": "Floor full body - 120X60",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 11,
+      "name": "Floor full body - 60X60",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 12,
+      "name": "Skirting full body - 120X60",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.5,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 13,
+      "name": "Skirting full body - 60X60",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.5,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 14,
+      "name": "Floor full body- Digital - 120X60",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 15,
+      "name": "Floor full body- Digital - 60X60",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 16,
+      "name": "Skirting full body- Digital - 120X60",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.5,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 17,
+      "name": "Skirting full body- Digital - 60X60",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.5,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 18,
+      "name": "Floor Full body Tile 120X20",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 19,
+      "name": "Skirting Full body Tile 120X20",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 20,
+      "name": "Floor Full Body Tile 60 X60 - 20 mm",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 21,
+      "name": "Skirting Full body Tile 60 X60 - 20 mm",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 22,
+      "name": "Floor full body - light colour 60X120",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 23,
+      "name": "Floor full body - Dark colour 60X120",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 24,
+      "name": "Skirting full body - light colour 60X120",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 25,
+      "name": "Skirting full body - Dark colour 60X120",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 26,
+      "name": "Wall Full body Digital 60 X120",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 27,
+      "name": "Wall full body- Digital - 60X60",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 28,
+      "name": "Wall Tile ceramic 30 X60",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 29,
+      "name": "Staircase Tile Tread- Tiles- full body 30X120",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 30,
+      "name": "Staircase Tiles Riser- full body 20X120",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 31,
+      "name": "Staircase Tile Landing- full body 60x60",
+      "uom": "Sqm",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 32,
+      "name": "Staircase Tile skirting - full body 60x60",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.30000000000000004,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 33,
+      "name": "Skirting SS trim",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 34,
+      "name": "Wall Punning - DXB Material",
+      "uom": "Sqm",
+      "category": "False Ceiling",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.2,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 35,
+      "name": "RG Gypsum False ceiling",
+      "uom": "Sqm",
+      "category": "False Ceiling",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1546_5560096f",
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.0,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 36,
+      "name": "RG Gypsum False ceiling with shadow Gap",
+      "uom": "Sqm",
+      "category": "False Ceiling",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 37,
+      "name": "RG Gypsum False ceiling with corniche",
+      "uom": "Sqm",
+      "category": "False Ceiling",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 38,
+      "name": "MR Gypsum False ceiling",
+      "uom": "Sqm",
+      "category": "False Ceiling",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1547_9b59e7ff",
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.0,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 39,
+      "name": "MR Gypsum False ceiling with shadow gap",
+      "uom": "Sqm",
+      "category": "False Ceiling",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 40,
+      "name": "Dry Wall Partition - RG",
+      "uom": "Sqm",
+      "category": "False Ceiling",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1548_d50ee7c4",
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 41,
+      "name": "Dry Wall Partition - FR",
+      "uom": "Sqm",
+      "category": "False Ceiling",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 42,
+      "name": "Dry Wall Partition - MR",
+      "uom": "Sqm",
+      "category": "False Ceiling",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1549_9bf26b47",
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 43,
+      "name": "Dry Wall Partition - Cement Board",
+      "uom": "Sqm",
+      "category": "False Ceiling",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 44,
+      "name": "Exterior Paint - Capagrain",
+      "uom": "Sqm",
+      "category": "Paint",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.15000000000000002,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 45,
+      "name": "Wall Emulsion Paint - Caparol",
+      "uom": "Sqm",
+      "category": "Paint",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.0,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 46,
+      "name": "Wall Emulsion Paint - Jotun",
+      "uom": "Sqm",
+      "category": "Paint",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.0,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 47,
+      "name": "Ceiling Emulsion Paint - Caparol",
+      "uom": "Sqm",
+      "category": "Paint",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 48,
+      "name": "Ceiling Emulsion Paint - Jotun",
+      "uom": "Sqm",
+      "category": "Paint",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 49,
+      "name": "Decorative paint- Makhmaliya Finish",
+      "uom": "Sqm",
+      "category": "Paint",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.15000000000000002,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 50,
+      "name": "Decorative paint - Cement Finish",
+      "uom": "Sqm",
+      "category": "Paint",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.15000000000000002,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 51,
+      "name": "Granite work - Kotra black - 18-20 mm",
+      "uom": "Sqm",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 52,
+      "name": "Sintered stone - 12 mm",
+      "uom": "Sqm",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 3,
+      "default_vendor_id": null,
+      "consumable_pct": 0.1,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 53,
+      "name": "Sintered stone - 18 mm - threshold (400)",
+      "uom": "lmt",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 3,
+      "default_vendor_id": null,
+      "consumable_pct": 0.1,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 54,
+      "name": "Sintered stone - 18 mm - threshold (250)",
+      "uom": "lmt",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 3,
+      "default_vendor_id": null,
+      "consumable_pct": 0.1,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 56,
+      "name": "Sintered stone  - 6 mm",
+      "uom": "Sqm",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 3,
+      "default_vendor_id": null,
+      "consumable_pct": 0.1,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 57,
+      "name": "Marble works- Material @$50/ sq mt - 18-20mm",
+      "uom": "Sqm",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 2,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 58,
+      "name": "Marble works- Material @$75/ sq mt - 18-20mm",
+      "uom": "Sqm",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 2,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 59,
+      "name": "Marble works- Material @$100/ sq mt - 18-20mm",
+      "uom": "Sqm",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 2,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 60,
+      "name": "Marble works- Material @$50/ sq mt - 18-20mm - Skirting",
+      "uom": "Lmt",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 2,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 61,
+      "name": "Marble works- Material @$75/ sq mt - 18-20mm - Skirting",
+      "uom": "Lmt",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 2,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 62,
+      "name": "Marble works- Material @$100/ sq mt - 18-20mm - Skirting",
+      "uom": "Lmt",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 2,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 63,
+      "name": "Pasco Cement tile - parking area",
+      "uom": "Sqm",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.1,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 64,
+      "name": "Clay Tile",
+      "uom": "Sqm",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.2,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 65,
+      "name": "Stone jali",
+      "uom": "Lmt",
+      "category": "Stone",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 66,
+      "name": "Vanity Counter 1 -1.50*0.60 mt (1.3)",
+      "uom": "Nos",
+      "category": "Counters",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.0,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 67,
+      "name": "Vanity Counter 2- 1*0.45 mt",
+      "uom": "Nos",
+      "category": "Counters",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.0,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 68,
+      "name": "Vanity Counter 3- 0.8*0.6 Mt",
+      "uom": "Nos",
+      "category": "Counters",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.0,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 69,
+      "name": "Vanity Counter 4- 2.0 *0.6 mt",
+      "uom": "Nos",
+      "category": "Counters",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.0,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 70,
+      "name": "IPS flooring 30 mm",
+      "uom": "Sqm",
+      "category": "Flooring",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 71,
+      "name": "IPS flooring 50 mm",
+      "uom": "Sqm",
+      "category": "Flooring",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.25,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 72,
+      "name": "water proofing wet areas - liquid applied",
+      "uom": "Sqm",
+      "category": "Flooring",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.0,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 73,
+      "name": "IPS flooring and water proofing",
+      "uom": "Sqm",
+      "category": "Flooring",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.0,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 74,
+      "name": "water proofing membrane ( two layer)",
+      "uom": "Sqm",
+      "category": "Flooring",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.0,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 75,
+      "name": "Plaster",
+      "uom": "Sqm",
+      "category": "Flooring",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.15000000000000002,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 76,
+      "name": "Skirting GVT Tile 60X60",
+      "uom": "LMT",
+      "category": "Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": true,
+      "notes": null,
+      "purchasing_company_id": 1,
+      "default_vendor_id": null,
+      "consumable_pct": 0.5,
+      "ohp_pct": 0.0
+    },
+    {
+      "id": 78,
+      "name": "Wall Punning - IND Material",
+      "uom": "Sqm",
+      "category": "False Ceiling",
+      "default_code": null,
+      "odoo_id": null,
+      "active": true,
+      "needs_setup": false,
+      "notes": null,
+      "purchasing_company_id": 2,
+      "default_vendor_id": null,
+      "consumable_pct": 0.2,
+      "ohp_pct": 0.0
+    }
+  ],
+  "support_items": [
+    {
+      "id": 51,
+      "name": "Granite work - Kotra black - 18-20 mm",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": null
+    },
+    {
+      "id": 52,
+      "name": "Sintered stone - 12 mm",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 6
+    },
+    {
+      "id": 53,
+      "name": "Sintered stone - 18 mm - threshold (400)",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 6
+    },
+    {
+      "id": 54,
+      "name": "Sintered stone - 18 mm - threshold (250)",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 6
+    },
+    {
+      "id": 55,
+      "name": "Sintered stone  - 6 mm",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 6
+    },
+    {
+      "id": 56,
+      "name": "Marble works- Material @$50/ sq mt - 18-20mm",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 5
+    },
+    {
+      "id": 57,
+      "name": "Marble works- Material @$75/ sq mt - 18-20mm",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 5
+    },
+    {
+      "id": 58,
+      "name": "Marble works- Material @$100/ sq mt - 18-20mm",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 5
+    },
+    {
+      "id": 59,
+      "name": "Marble works- Material @$50/ sq mt - 18-20mm - Skirting",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 5
+    },
+    {
+      "id": 60,
+      "name": "Marble works- Material @$75/ sq mt - 18-20mm - Skirting",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 5
+    },
+    {
+      "id": 61,
+      "name": "Marble works- Material @$100/ sq mt - 18-20mm - Skirting",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 5
+    },
+    {
+      "id": 62,
+      "name": "Pasco Cement tile - parking area",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": null
+    },
+    {
+      "id": 63,
+      "name": "Clay Tile",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": null
+    },
+    {
+      "id": 64,
+      "name": "Stone jali",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Lmt",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": null
+    },
+    {
+      "id": 65,
+      "name": "IPS flooring 30 mm",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": null
+    },
+    {
+      "id": 66,
+      "name": "IPS flooring 50 mm",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": null
+    },
+    {
+      "id": 67,
+      "name": "Plaster",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": null
+    },
+    {
+      "id": 74,
+      "name": "RG TE 12.5 x 1200 x 2400 mm, RG Gypsum Board",
+      "default_code": "GYP-01",
+      "odoo_id": null,
+      "uom": "Boards",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 75,
+      "name": "GY MP 38 MC 050 12/12 3000mm, Main Channal",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1569_04d8f44c",
+      "uom": "Nos.",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 76,
+      "name": "GY MP 23 FC 050 64/35 3000, Furring Channel",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1570_69ff56aa",
+      "uom": "Nos.",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 77,
+      "name": "GY MP 25/25 WA 050 3000, Wall Angle",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1571_0f8c22c5",
+      "uom": "Nos.",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 78,
+      "name": "GM A HS 6 40, Hammer Screw",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1572_84bbb406",
+      "uom": "Packets",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 79,
+      "name": "GM A WDG 6 40, Wedge anchor",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1574_d09ec2a5",
+      "uom": "Box",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 80,
+      "name": "GA WH SD M4.2 13 YZ, Wafer Head Self Drilling Screw",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1575_7195055e",
+      "uom": "Box",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 81,
+      "name": "GA BH ST M3.5 25 YZ, Bugle Head Self Tapping Screw",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1576_2cefe5e2",
+      "uom": "Box",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 82,
+      "name": "GN JT F 50MM 90M ROLL, Fibre Joint Tape",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1577_b2e638ea",
+      "uom": "Pcs",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 83,
+      "name": "GT JC-100 READYMIX JOINT COMPOUND 28KG",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1578_dd2b5f54",
+      "uom": "Drum",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 84,
+      "name": "12mm Ply wood backing for curtain pelmet",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Boards",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 6
+    },
+    {
+      "id": 85,
+      "name": "MR TE 12.5 x 1200 x 2400 mm, MR Gypsum Board",
+      "default_code": "GYP-02",
+      "odoo_id": null,
+      "uom": "Boards",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 86,
+      "name": "25 mm GI Painted / 3mt length",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Nos.",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 87,
+      "name": "Gyp 78 mm x 50mm x 0.60 mm Deflection Head Track",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1579_bea930b3",
+      "uom": "Pcs",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 88,
+      "name": "Gyp 78 mm x 0.50 mm Wall Track",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1580_a3c3a71a",
+      "uom": "Pcs",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 89,
+      "name": "Gyp 76mm x 0.50 mm Wall Stud - 3.0m",
+      "default_code": null,
+      "odoo_id": "__export__.product_template_1581_df63959f",
+      "uom": "Box",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 90,
+      "name": "Smoke and Acoustic Sealant Sausage - CP 506",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Roll",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 91,
+      "name": "Gypsemna Audio Insul 50mm thick - 12kg/m3",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Pcs",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 92,
+      "name": "FR TE 12.5 x 1200 x 2400 mm, FR Gypsum Board",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Boards",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 93,
+      "name": "CMB TE 12.5 x 1200 x 2400 mm, CMB Gypsum Board",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Boards",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 1
+    },
+    {
+      "id": 94,
+      "name": "CapaAcryl Primer",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 3
+    },
+    {
+      "id": 95,
+      "name": "CapaGrain",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 3
+    },
+    {
+      "id": 96,
+      "name": "Primer (Caparol)",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 3
+    },
+    {
+      "id": 97,
+      "name": "Stucco (Caparol)",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 3
+    },
+    {
+      "id": 98,
+      "name": "Paint (Caparol Silk Finish)",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 3
+    },
+    {
+      "id": 99,
+      "name": "Primer (Jotun)",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 7
+    },
+    {
+      "id": 100,
+      "name": "Stucco (Jotun)",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 7
+    },
+    {
+      "id": 101,
+      "name": "Paint (Jotun Silk Finish)",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 7
+    },
+    {
+      "id": 102,
+      "name": "CapaPrime",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 3
+    },
+    {
+      "id": 103,
+      "name": "CapaStucco",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 3
+    },
+    {
+      "id": 104,
+      "name": "CapaLux",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 3
+    },
+    {
+      "id": 105,
+      "name": "Makhmalia",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 3
+    },
+    {
+      "id": 106,
+      "name": "CapaPutz Primer",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 3
+    },
+    {
+      "id": 107,
+      "name": "ArmaReno+Color Pack",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Drums",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 3
+    },
+    {
+      "id": 108,
+      "name": "GVT Tile 60x120",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 8
+    },
+    {
+      "id": 109,
+      "name": "Ceramic Tile 30x30",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 8
+    },
+    {
+      "id": 110,
+      "name": "Full Body Tile 60x60 20 mm",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 9
+    },
+    {
+      "id": 111,
+      "name": "Gypsum Powder",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Bags",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": null
+    },
+    {
+      "id": 112,
+      "name": "GVT Tile 60x60",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 8
+    },
+    {
+      "id": 113,
+      "name": "GVT Tile 30x60",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 8
+    },
+    {
+      "id": 114,
+      "name": "SS Tile trim",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "LMT",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 6
+    },
+    {
+      "id": 115,
+      "name": "Staircase Landing Full Body Tile 60x60",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 9
+    },
+    {
+      "id": 116,
+      "name": "Staircase Tread Full Body Tile 30x120",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 9
+    },
+    {
+      "id": 117,
+      "name": "Staircase Riser Full Body Tile 20x120",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 9
+    },
+    {
+      "id": 118,
+      "name": "Ceramic Tile 30x60",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 8
+    },
+    {
+      "id": 119,
+      "name": "Full Body Tile 60x120",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 9
+    },
+    {
+      "id": 120,
+      "name": "Full Body Tile 60x60",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 9
+    },
+    {
+      "id": 121,
+      "name": "Full Body Tile 120x20",
+      "default_code": null,
+      "odoo_id": null,
+      "uom": "Sqm",
+      "notes": null,
+      "purchase_category": null,
+      "default_vendor_id": 9
+    }
+  ],
+  "bom_lines": [
+    {
+      "id": 217,
+      "product_id": 1,
+      "support_item_id": 108,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 225,
+      "product_id": 2,
+      "support_item_id": 112,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 226,
+      "product_id": 3,
+      "support_item_id": 113,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 219,
+      "product_id": 4,
+      "support_item_id": 108,
+      "qty_per_unit": 0.6,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 251,
+      "product_id": 5,
+      "support_item_id": 113,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 232,
+      "product_id": 6,
+      "support_item_id": 118,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 252,
+      "product_id": 7,
+      "support_item_id": 118,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 220,
+      "product_id": 8,
+      "support_item_id": 109,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 253,
+      "product_id": 9,
+      "support_item_id": 109,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 234,
+      "product_id": 10,
+      "support_item_id": 119,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 243,
+      "product_id": 11,
+      "support_item_id": 120,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 235,
+      "product_id": 12,
+      "support_item_id": 119,
+      "qty_per_unit": 0.6,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 244,
+      "product_id": 13,
+      "support_item_id": 120,
+      "qty_per_unit": 0.12,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 236,
+      "product_id": 14,
+      "support_item_id": 119,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 245,
+      "product_id": 15,
+      "support_item_id": 120,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 237,
+      "product_id": 16,
+      "support_item_id": 119,
+      "qty_per_unit": 0.6,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 246,
+      "product_id": 17,
+      "support_item_id": 120,
+      "qty_per_unit": 0.12,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 248,
+      "product_id": 18,
+      "support_item_id": 121,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 249,
+      "product_id": 19,
+      "support_item_id": 121,
+      "qty_per_unit": 0.1,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 221,
+      "product_id": 20,
+      "support_item_id": 110,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 250,
+      "product_id": 21,
+      "support_item_id": 110,
+      "qty_per_unit": 0.12,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 238,
+      "product_id": 22,
+      "support_item_id": 119,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 239,
+      "product_id": 23,
+      "support_item_id": 119,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 240,
+      "product_id": 24,
+      "support_item_id": 119,
+      "qty_per_unit": 0.6,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 241,
+      "product_id": 25,
+      "support_item_id": 119,
+      "qty_per_unit": 0.6,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 242,
+      "product_id": 26,
+      "support_item_id": 119,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 247,
+      "product_id": 27,
+      "support_item_id": 120,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 233,
+      "product_id": 28,
+      "support_item_id": 118,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 230,
+      "product_id": 29,
+      "support_item_id": 116,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 231,
+      "product_id": 30,
+      "support_item_id": 117,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 228,
+      "product_id": 31,
+      "support_item_id": 115,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 229,
+      "product_id": 32,
+      "support_item_id": 115,
+      "qty_per_unit": 0.12,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 227,
+      "product_id": 33,
+      "support_item_id": 114,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 223,
+      "product_id": 34,
+      "support_item_id": 111,
+      "qty_per_unit": 0.67,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 96,
+      "product_id": 35,
+      "support_item_id": 74,
+      "qty_per_unit": 0.45320000000000005,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 97,
+      "product_id": 35,
+      "support_item_id": 75,
+      "qty_per_unit": 0.8640624999999998,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 98,
+      "product_id": 35,
+      "support_item_id": 76,
+      "qty_per_unit": 0.8640624999999998,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 99,
+      "product_id": 35,
+      "support_item_id": 77,
+      "qty_per_unit": 0.97803125,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 3
+    },
+    {
+      "id": 100,
+      "product_id": 35,
+      "support_item_id": 78,
+      "qty_per_unit": 0.0088,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 4
+    },
+    {
+      "id": 101,
+      "product_id": 35,
+      "support_item_id": 79,
+      "qty_per_unit": 0.018104166666666664,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 5
+    },
+    {
+      "id": 102,
+      "product_id": 35,
+      "support_item_id": 80,
+      "qty_per_unit": 0.011315104166666666,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 6
+    },
+    {
+      "id": 103,
+      "product_id": 35,
+      "support_item_id": 81,
+      "qty_per_unit": 0.014483333333333332,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 7
+    },
+    {
+      "id": 104,
+      "product_id": 35,
+      "support_item_id": 82,
+      "qty_per_unit": 0.044,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 8
+    },
+    {
+      "id": 105,
+      "product_id": 35,
+      "support_item_id": 83,
+      "qty_per_unit": 0.033,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 9
+    },
+    {
+      "id": 106,
+      "product_id": 35,
+      "support_item_id": 84,
+      "qty_per_unit": 0.165,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 10
+    },
+    {
+      "id": 107,
+      "product_id": 36,
+      "support_item_id": 74,
+      "qty_per_unit": 0.45320000000000005,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 108,
+      "product_id": 36,
+      "support_item_id": 75,
+      "qty_per_unit": 0.8640624999999998,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 109,
+      "product_id": 36,
+      "support_item_id": 76,
+      "qty_per_unit": 0.8640624999999998,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 110,
+      "product_id": 36,
+      "support_item_id": 77,
+      "qty_per_unit": 0.97803125,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 3
+    },
+    {
+      "id": 111,
+      "product_id": 36,
+      "support_item_id": 86,
+      "qty_per_unit": 0.147,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 4
+    },
+    {
+      "id": 112,
+      "product_id": 36,
+      "support_item_id": 78,
+      "qty_per_unit": 0.0088,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 5
+    },
+    {
+      "id": 113,
+      "product_id": 36,
+      "support_item_id": 79,
+      "qty_per_unit": 0.018104166666666664,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 6
+    },
+    {
+      "id": 114,
+      "product_id": 36,
+      "support_item_id": 80,
+      "qty_per_unit": 0.011315104166666666,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 7
+    },
+    {
+      "id": 115,
+      "product_id": 36,
+      "support_item_id": 81,
+      "qty_per_unit": 0.014483333333333332,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 8
+    },
+    {
+      "id": 116,
+      "product_id": 36,
+      "support_item_id": 82,
+      "qty_per_unit": 0.044,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 9
+    },
+    {
+      "id": 117,
+      "product_id": 36,
+      "support_item_id": 83,
+      "qty_per_unit": 0.033,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 10
+    },
+    {
+      "id": 118,
+      "product_id": 36,
+      "support_item_id": 84,
+      "qty_per_unit": 0.165,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 11
+    },
+    {
+      "id": 119,
+      "product_id": 37,
+      "support_item_id": 74,
+      "qty_per_unit": 0.45320000000000005,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 120,
+      "product_id": 37,
+      "support_item_id": 75,
+      "qty_per_unit": 0.8640624999999998,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 121,
+      "product_id": 37,
+      "support_item_id": 76,
+      "qty_per_unit": 0.8640624999999998,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 122,
+      "product_id": 37,
+      "support_item_id": 77,
+      "qty_per_unit": 0.97803125,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 3
+    },
+    {
+      "id": 123,
+      "product_id": 37,
+      "support_item_id": 78,
+      "qty_per_unit": 0.0088,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 4
+    },
+    {
+      "id": 124,
+      "product_id": 37,
+      "support_item_id": 79,
+      "qty_per_unit": 0.018104166666666664,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 5
+    },
+    {
+      "id": 125,
+      "product_id": 37,
+      "support_item_id": 80,
+      "qty_per_unit": 0.011315104166666666,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 6
+    },
+    {
+      "id": 126,
+      "product_id": 37,
+      "support_item_id": 81,
+      "qty_per_unit": 0.014483333333333332,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 7
+    },
+    {
+      "id": 127,
+      "product_id": 37,
+      "support_item_id": 82,
+      "qty_per_unit": 0.044,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 8
+    },
+    {
+      "id": 128,
+      "product_id": 37,
+      "support_item_id": 83,
+      "qty_per_unit": 0.033,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 9
+    },
+    {
+      "id": 129,
+      "product_id": 37,
+      "support_item_id": 84,
+      "qty_per_unit": 0.165,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 10
+    },
+    {
+      "id": 130,
+      "product_id": 38,
+      "support_item_id": 85,
+      "qty_per_unit": 0.4532,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 131,
+      "product_id": 38,
+      "support_item_id": 75,
+      "qty_per_unit": 0.8640624999999998,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 132,
+      "product_id": 38,
+      "support_item_id": 76,
+      "qty_per_unit": 0.8640625,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 133,
+      "product_id": 38,
+      "support_item_id": 77,
+      "qty_per_unit": 0.97803125,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 3
+    },
+    {
+      "id": 134,
+      "product_id": 38,
+      "support_item_id": 78,
+      "qty_per_unit": 0.0088,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 4
+    },
+    {
+      "id": 135,
+      "product_id": 38,
+      "support_item_id": 79,
+      "qty_per_unit": 0.018104166666666664,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 5
+    },
+    {
+      "id": 136,
+      "product_id": 38,
+      "support_item_id": 80,
+      "qty_per_unit": 0.011315104166666666,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 6
+    },
+    {
+      "id": 137,
+      "product_id": 38,
+      "support_item_id": 81,
+      "qty_per_unit": 0.014483333333333332,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 7
+    },
+    {
+      "id": 138,
+      "product_id": 38,
+      "support_item_id": 82,
+      "qty_per_unit": 0.044,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 8
+    },
+    {
+      "id": 139,
+      "product_id": 38,
+      "support_item_id": 83,
+      "qty_per_unit": 0.033,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 9
+    },
+    {
+      "id": 140,
+      "product_id": 38,
+      "support_item_id": 84,
+      "qty_per_unit": 0.165,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 10
+    },
+    {
+      "id": 141,
+      "product_id": 39,
+      "support_item_id": 85,
+      "qty_per_unit": 0.45320000000000005,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 142,
+      "product_id": 39,
+      "support_item_id": 75,
+      "qty_per_unit": 0.8640624999999998,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 143,
+      "product_id": 39,
+      "support_item_id": 76,
+      "qty_per_unit": 0.8640624999999998,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 144,
+      "product_id": 39,
+      "support_item_id": 77,
+      "qty_per_unit": 0.97803125,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 3
+    },
+    {
+      "id": 145,
+      "product_id": 39,
+      "support_item_id": 86,
+      "qty_per_unit": 0.147,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 4
+    },
+    {
+      "id": 146,
+      "product_id": 39,
+      "support_item_id": 78,
+      "qty_per_unit": 0.0088,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 5
+    },
+    {
+      "id": 147,
+      "product_id": 39,
+      "support_item_id": 79,
+      "qty_per_unit": 0.018104166666666664,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 6
+    },
+    {
+      "id": 148,
+      "product_id": 39,
+      "support_item_id": 80,
+      "qty_per_unit": 0.011315104166666666,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 7
+    },
+    {
+      "id": 149,
+      "product_id": 39,
+      "support_item_id": 81,
+      "qty_per_unit": 0.014483333333333332,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 8
+    },
+    {
+      "id": 150,
+      "product_id": 39,
+      "support_item_id": 82,
+      "qty_per_unit": 0.044,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 9
+    },
+    {
+      "id": 151,
+      "product_id": 39,
+      "support_item_id": 83,
+      "qty_per_unit": 0.033,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 10
+    },
+    {
+      "id": 152,
+      "product_id": 39,
+      "support_item_id": 84,
+      "qty_per_unit": 0.165,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 11
+    },
+    {
+      "id": 153,
+      "product_id": 40,
+      "support_item_id": 74,
+      "qty_per_unit": 0.77,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 154,
+      "product_id": 40,
+      "support_item_id": 87,
+      "qty_per_unit": 0.12221,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 155,
+      "product_id": 40,
+      "support_item_id": 88,
+      "qty_per_unit": 0.12221,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 156,
+      "product_id": 40,
+      "support_item_id": 89,
+      "qty_per_unit": 0.61116,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 3
+    },
+    {
+      "id": 157,
+      "product_id": 40,
+      "support_item_id": 79,
+      "qty_per_unit": 0.012210000000000004,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 4
+    },
+    {
+      "id": 158,
+      "product_id": 40,
+      "support_item_id": 80,
+      "qty_per_unit": 0.0036300000000000004,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 5
+    },
+    {
+      "id": 159,
+      "product_id": 40,
+      "support_item_id": 81,
+      "qty_per_unit": 0.0275,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 6
+    },
+    {
+      "id": 160,
+      "product_id": 40,
+      "support_item_id": 82,
+      "qty_per_unit": 0.029920000000000006,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 7
+    },
+    {
+      "id": 161,
+      "product_id": 40,
+      "support_item_id": 83,
+      "qty_per_unit": 0.17,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 8
+    },
+    {
+      "id": 162,
+      "product_id": 40,
+      "support_item_id": 90,
+      "qty_per_unit": 0.046,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 9
+    },
+    {
+      "id": 163,
+      "product_id": 40,
+      "support_item_id": 91,
+      "qty_per_unit": 0.046,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 10
+    },
+    {
+      "id": 164,
+      "product_id": 41,
+      "support_item_id": 92,
+      "qty_per_unit": 0.77,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 165,
+      "product_id": 41,
+      "support_item_id": 87,
+      "qty_per_unit": 0.12221,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 166,
+      "product_id": 41,
+      "support_item_id": 88,
+      "qty_per_unit": 0.12221,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 167,
+      "product_id": 41,
+      "support_item_id": 89,
+      "qty_per_unit": 0.61116,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 3
+    },
+    {
+      "id": 168,
+      "product_id": 41,
+      "support_item_id": 79,
+      "qty_per_unit": 0.012210000000000004,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 4
+    },
+    {
+      "id": 169,
+      "product_id": 41,
+      "support_item_id": 80,
+      "qty_per_unit": 0.0036300000000000004,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 5
+    },
+    {
+      "id": 170,
+      "product_id": 41,
+      "support_item_id": 81,
+      "qty_per_unit": 0.0275,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 6
+    },
+    {
+      "id": 171,
+      "product_id": 41,
+      "support_item_id": 82,
+      "qty_per_unit": 0.029920000000000006,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 7
+    },
+    {
+      "id": 172,
+      "product_id": 41,
+      "support_item_id": 83,
+      "qty_per_unit": 0.17,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 8
+    },
+    {
+      "id": 173,
+      "product_id": 41,
+      "support_item_id": 90,
+      "qty_per_unit": 0.046,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 9
+    },
+    {
+      "id": 174,
+      "product_id": 41,
+      "support_item_id": 91,
+      "qty_per_unit": 0.046,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 10
+    },
+    {
+      "id": 175,
+      "product_id": 42,
+      "support_item_id": 85,
+      "qty_per_unit": 0.77,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 176,
+      "product_id": 42,
+      "support_item_id": 87,
+      "qty_per_unit": 0.12221,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 177,
+      "product_id": 42,
+      "support_item_id": 88,
+      "qty_per_unit": 0.12221,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 178,
+      "product_id": 42,
+      "support_item_id": 89,
+      "qty_per_unit": 0.61116,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 3
+    },
+    {
+      "id": 179,
+      "product_id": 42,
+      "support_item_id": 79,
+      "qty_per_unit": 0.012210000000000004,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 4
+    },
+    {
+      "id": 180,
+      "product_id": 42,
+      "support_item_id": 80,
+      "qty_per_unit": 0.0036300000000000004,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 5
+    },
+    {
+      "id": 181,
+      "product_id": 42,
+      "support_item_id": 81,
+      "qty_per_unit": 0.0275,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 6
+    },
+    {
+      "id": 182,
+      "product_id": 42,
+      "support_item_id": 82,
+      "qty_per_unit": 0.029920000000000006,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 7
+    },
+    {
+      "id": 183,
+      "product_id": 42,
+      "support_item_id": 83,
+      "qty_per_unit": 0.17,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 8
+    },
+    {
+      "id": 184,
+      "product_id": 42,
+      "support_item_id": 90,
+      "qty_per_unit": 0.046,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 9
+    },
+    {
+      "id": 185,
+      "product_id": 42,
+      "support_item_id": 91,
+      "qty_per_unit": 0.046,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 10
+    },
+    {
+      "id": 186,
+      "product_id": 43,
+      "support_item_id": 93,
+      "qty_per_unit": 0.77,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 187,
+      "product_id": 43,
+      "support_item_id": 87,
+      "qty_per_unit": 0.12221,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 188,
+      "product_id": 43,
+      "support_item_id": 88,
+      "qty_per_unit": 0.12221,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 189,
+      "product_id": 43,
+      "support_item_id": 89,
+      "qty_per_unit": 0.61116,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 3
+    },
+    {
+      "id": 190,
+      "product_id": 43,
+      "support_item_id": 79,
+      "qty_per_unit": 0.012210000000000004,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 4
+    },
+    {
+      "id": 191,
+      "product_id": 43,
+      "support_item_id": 80,
+      "qty_per_unit": 0.0036300000000000004,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 5
+    },
+    {
+      "id": 192,
+      "product_id": 43,
+      "support_item_id": 81,
+      "qty_per_unit": 0.0275,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 6
+    },
+    {
+      "id": 193,
+      "product_id": 43,
+      "support_item_id": 82,
+      "qty_per_unit": 0.029920000000000006,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 7
+    },
+    {
+      "id": 194,
+      "product_id": 43,
+      "support_item_id": 83,
+      "qty_per_unit": 0.17,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 8
+    },
+    {
+      "id": 195,
+      "product_id": 43,
+      "support_item_id": 90,
+      "qty_per_unit": 0.046,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 9
+    },
+    {
+      "id": 196,
+      "product_id": 43,
+      "support_item_id": 91,
+      "qty_per_unit": 0.046,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 10
+    },
+    {
+      "id": 197,
+      "product_id": 44,
+      "support_item_id": 94,
+      "qty_per_unit": 0.011,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 198,
+      "product_id": 44,
+      "support_item_id": 95,
+      "qty_per_unit": 0.04,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 199,
+      "product_id": 45,
+      "support_item_id": 96,
+      "qty_per_unit": 0.007692,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 200,
+      "product_id": 45,
+      "support_item_id": 97,
+      "qty_per_unit": 0.028571000000000003,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 201,
+      "product_id": 45,
+      "support_item_id": 98,
+      "qty_per_unit": 0.015384,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 202,
+      "product_id": 46,
+      "support_item_id": 99,
+      "qty_per_unit": 0.007692,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 203,
+      "product_id": 46,
+      "support_item_id": 100,
+      "qty_per_unit": 0.028571000000000003,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 204,
+      "product_id": 46,
+      "support_item_id": 101,
+      "qty_per_unit": 0.015384,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 205,
+      "product_id": 47,
+      "support_item_id": 96,
+      "qty_per_unit": 0.007692,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 206,
+      "product_id": 47,
+      "support_item_id": 97,
+      "qty_per_unit": 0.028571000000000003,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 207,
+      "product_id": 47,
+      "support_item_id": 98,
+      "qty_per_unit": 0.015384,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 208,
+      "product_id": 48,
+      "support_item_id": 99,
+      "qty_per_unit": 0.007692,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 209,
+      "product_id": 48,
+      "support_item_id": 100,
+      "qty_per_unit": 0.028571000000000003,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 210,
+      "product_id": 48,
+      "support_item_id": 101,
+      "qty_per_unit": 0.015384,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 211,
+      "product_id": 49,
+      "support_item_id": 102,
+      "qty_per_unit": 0.01,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 212,
+      "product_id": 49,
+      "support_item_id": 103,
+      "qty_per_unit": 0.033,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 213,
+      "product_id": 49,
+      "support_item_id": 104,
+      "qty_per_unit": 0.01,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 2
+    },
+    {
+      "id": 214,
+      "product_id": 49,
+      "support_item_id": 105,
+      "qty_per_unit": 0.1,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 3
+    },
+    {
+      "id": 215,
+      "product_id": 50,
+      "support_item_id": 106,
+      "qty_per_unit": 0.013,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 216,
+      "product_id": 50,
+      "support_item_id": 107,
+      "qty_per_unit": 0.25,
+      "wastage_pct": 0.0,
+      "role": "fixing",
+      "sort_order": 1
+    },
+    {
+      "id": 51,
+      "product_id": 51,
+      "support_item_id": 51,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 52,
+      "product_id": 52,
+      "support_item_id": 52,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 53,
+      "product_id": 53,
+      "support_item_id": 53,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 54,
+      "product_id": 54,
+      "support_item_id": 54,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 55,
+      "product_id": 56,
+      "support_item_id": 55,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 56,
+      "product_id": 57,
+      "support_item_id": 56,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 57,
+      "product_id": 58,
+      "support_item_id": 57,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 58,
+      "product_id": 59,
+      "support_item_id": 58,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 59,
+      "product_id": 60,
+      "support_item_id": 59,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 60,
+      "product_id": 61,
+      "support_item_id": 60,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 61,
+      "product_id": 62,
+      "support_item_id": 61,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 62,
+      "product_id": 63,
+      "support_item_id": 62,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 63,
+      "product_id": 64,
+      "support_item_id": 63,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.2,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 64,
+      "product_id": 65,
+      "support_item_id": 64,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 65,
+      "product_id": 70,
+      "support_item_id": 65,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 66,
+      "product_id": 71,
+      "support_item_id": 66,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 67,
+      "product_id": 75,
+      "support_item_id": 67,
+      "qty_per_unit": 1.0,
+      "wastage_pct": 0.1,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 218,
+      "product_id": 76,
+      "support_item_id": 108,
+      "qty_per_unit": 0.12,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    },
+    {
+      "id": 224,
+      "product_id": 78,
+      "support_item_id": 111,
+      "qty_per_unit": 0.67,
+      "wastage_pct": 0.0,
+      "role": "primary",
+      "sort_order": 0
+    }
+  ],
+  "country_material_prices": [
+    {
+      "id": 51,
+      "country_id": 1,
+      "support_item_id": 51,
+      "unit_price_local": 20.0
+    },
+    {
+      "id": 52,
+      "country_id": 1,
+      "support_item_id": 52,
+      "unit_price_local": 35.0
+    },
+    {
+      "id": 53,
+      "country_id": 1,
+      "support_item_id": 53,
+      "unit_price_local": 80.0
+    },
+    {
+      "id": 54,
+      "country_id": 1,
+      "support_item_id": 54,
+      "unit_price_local": 80.0
+    },
+    {
+      "id": 55,
+      "country_id": 1,
+      "support_item_id": 55,
+      "unit_price_local": 23.0
+    },
+    {
+      "id": 56,
+      "country_id": 1,
+      "support_item_id": 56,
+      "unit_price_local": 50.0
+    },
+    {
+      "id": 57,
+      "country_id": 1,
+      "support_item_id": 57,
+      "unit_price_local": 75.0
+    },
+    {
+      "id": 58,
+      "country_id": 1,
+      "support_item_id": 58,
+      "unit_price_local": 100.0
+    },
+    {
+      "id": 59,
+      "country_id": 1,
+      "support_item_id": 59,
+      "unit_price_local": 15.0
+    },
+    {
+      "id": 60,
+      "country_id": 1,
+      "support_item_id": 60,
+      "unit_price_local": 20.0
+    },
+    {
+      "id": 61,
+      "country_id": 1,
+      "support_item_id": 61,
+      "unit_price_local": 25.0
+    },
+    {
+      "id": 62,
+      "country_id": 1,
+      "support_item_id": 62,
+      "unit_price_local": 3.753063725490196
+    },
+    {
+      "id": 63,
+      "country_id": 1,
+      "support_item_id": 63,
+      "unit_price_local": 4.65
+    },
+    {
+      "id": 64,
+      "country_id": 1,
+      "support_item_id": 64,
+      "unit_price_local": 4.8
+    },
+    {
+      "id": 65,
+      "country_id": 1,
+      "support_item_id": 65,
+      "unit_price_local": 3.032
+    },
+    {
+      "id": 66,
+      "country_id": 1,
+      "support_item_id": 66,
+      "unit_price_local": 6.064
+    },
+    {
+      "id": 67,
+      "country_id": 1,
+      "support_item_id": 67,
+      "unit_price_local": 7.0
+    },
+    {
+      "id": 74,
+      "country_id": 1,
+      "support_item_id": 74,
+      "unit_price_local": 4.056756756756757
+    },
+    {
+      "id": 75,
+      "country_id": 1,
+      "support_item_id": 75,
+      "unit_price_local": 1.4783783783783782
+    },
+    {
+      "id": 76,
+      "country_id": 1,
+      "support_item_id": 76,
+      "unit_price_local": 2.1972972972972973
+    },
+    {
+      "id": 77,
+      "country_id": 1,
+      "support_item_id": 77,
+      "unit_price_local": 1.018918918918919
+    },
+    {
+      "id": 78,
+      "country_id": 1,
+      "support_item_id": 78,
+      "unit_price_local": 5.213513513513513
+    },
+    {
+      "id": 79,
+      "country_id": 1,
+      "support_item_id": 79,
+      "unit_price_local": 12.162162162162161
+    },
+    {
+      "id": 80,
+      "country_id": 1,
+      "support_item_id": 80,
+      "unit_price_local": 8.648648648648647
+    },
+    {
+      "id": 81,
+      "country_id": 1,
+      "support_item_id": 81,
+      "unit_price_local": 6.28108108108108
+    },
+    {
+      "id": 82,
+      "country_id": 1,
+      "support_item_id": 82,
+      "unit_price_local": 2.935135135135135
+    },
+    {
+      "id": 83,
+      "country_id": 1,
+      "support_item_id": 83,
+      "unit_price_local": 16.048648648648648
+    },
+    {
+      "id": 84,
+      "country_id": 1,
+      "support_item_id": 84,
+      "unit_price_local": 13.513513513513512
+    },
+    {
+      "id": 85,
+      "country_id": 1,
+      "support_item_id": 85,
+      "unit_price_local": 5.135135135135135
+    },
+    {
+      "id": 86,
+      "country_id": 1,
+      "support_item_id": 86,
+      "unit_price_local": 2.7027027027027026
+    },
+    {
+      "id": 87,
+      "country_id": 1,
+      "support_item_id": 87,
+      "unit_price_local": 6.551351351351351
+    },
+    {
+      "id": 88,
+      "country_id": 1,
+      "support_item_id": 88,
+      "unit_price_local": 4.235135135135135
+    },
+    {
+      "id": 89,
+      "country_id": 1,
+      "support_item_id": 89,
+      "unit_price_local": 5.394594594594595
+    },
+    {
+      "id": 90,
+      "country_id": 1,
+      "support_item_id": 90,
+      "unit_price_local": 6.691891891891892
+    },
+    {
+      "id": 91,
+      "country_id": 1,
+      "support_item_id": 91,
+      "unit_price_local": 45.96216216216216
+    },
+    {
+      "id": 92,
+      "country_id": 1,
+      "support_item_id": 92,
+      "unit_price_local": 6.85
+    },
+    {
+      "id": 93,
+      "country_id": 1,
+      "support_item_id": 93,
+      "unit_price_local": 13.78
+    },
+    {
+      "id": 94,
+      "country_id": 1,
+      "support_item_id": 94,
+      "unit_price_local": 30.136986301369863
+    },
+    {
+      "id": 95,
+      "country_id": 1,
+      "support_item_id": 95,
+      "unit_price_local": 43.869209809264305
+    },
+    {
+      "id": 96,
+      "country_id": 1,
+      "support_item_id": 96,
+      "unit_price_local": 14.756756756756756
+    },
+    {
+      "id": 97,
+      "country_id": 1,
+      "support_item_id": 97,
+      "unit_price_local": 15.070270270270269
+    },
+    {
+      "id": 98,
+      "country_id": 1,
+      "support_item_id": 98,
+      "unit_price_local": 46.486486486486484
+    },
+    {
+      "id": 99,
+      "country_id": 1,
+      "support_item_id": 99,
+      "unit_price_local": 20.27027027027027
+    },
+    {
+      "id": 100,
+      "country_id": 1,
+      "support_item_id": 100,
+      "unit_price_local": 28.378378378378375
+    },
+    {
+      "id": 101,
+      "country_id": 1,
+      "support_item_id": 101,
+      "unit_price_local": 67.56756756756756
+    },
+    {
+      "id": 102,
+      "country_id": 1,
+      "support_item_id": 102,
+      "unit_price_local": 21.36986301369863
+    },
+    {
+      "id": 103,
+      "country_id": 1,
+      "support_item_id": 103,
+      "unit_price_local": 21.36986301369863
+    },
+    {
+      "id": 104,
+      "country_id": 1,
+      "support_item_id": 104,
+      "unit_price_local": 63.013698630136986
+    },
+    {
+      "id": 105,
+      "country_id": 1,
+      "support_item_id": 105,
+      "unit_price_local": 33.15068493150685
+    },
+    {
+      "id": 106,
+      "country_id": 1,
+      "support_item_id": 106,
+      "unit_price_local": 43.28767123287671
+    },
+    {
+      "id": 107,
+      "country_id": 1,
+      "support_item_id": 107,
+      "unit_price_local": 80.82191780821918
+    }
+  ],
+  "coverage_rates": [
+    {
+      "id": 1,
+      "product_id": 1,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 2,
+      "product_id": 2,
+      "primary_coverage_per_day": 16.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 3,
+      "product_id": 3,
+      "primary_coverage_per_day": 18.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 4,
+      "product_id": 6,
+      "primary_coverage_per_day": 18.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 5,
+      "product_id": 8,
+      "primary_coverage_per_day": 20.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 6,
+      "product_id": 10,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 7,
+      "product_id": 11,
+      "primary_coverage_per_day": 16.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 8,
+      "product_id": 14,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 9,
+      "product_id": 15,
+      "primary_coverage_per_day": 16.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 10,
+      "product_id": 18,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 11,
+      "product_id": 20,
+      "primary_coverage_per_day": 8.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 12,
+      "product_id": 22,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 13,
+      "product_id": 23,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 14,
+      "product_id": 4,
+      "primary_coverage_per_day": 50.0,
+      "secondary_coverage_per_day": 50.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 15,
+      "product_id": 5,
+      "primary_coverage_per_day": 50.0,
+      "secondary_coverage_per_day": 50.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 16,
+      "product_id": 7,
+      "primary_coverage_per_day": 50.0,
+      "secondary_coverage_per_day": 50.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 17,
+      "product_id": 9,
+      "primary_coverage_per_day": 50.0,
+      "secondary_coverage_per_day": 50.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 18,
+      "product_id": 12,
+      "primary_coverage_per_day": 50.0,
+      "secondary_coverage_per_day": 50.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 19,
+      "product_id": 13,
+      "primary_coverage_per_day": 50.0,
+      "secondary_coverage_per_day": 50.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 20,
+      "product_id": 16,
+      "primary_coverage_per_day": 25.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 21,
+      "product_id": 17,
+      "primary_coverage_per_day": 50.0,
+      "secondary_coverage_per_day": 50.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 22,
+      "product_id": 19,
+      "primary_coverage_per_day": 50.0,
+      "secondary_coverage_per_day": 50.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 23,
+      "product_id": 21,
+      "primary_coverage_per_day": 25.0,
+      "secondary_coverage_per_day": 25.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 24,
+      "product_id": 24,
+      "primary_coverage_per_day": 50.0,
+      "secondary_coverage_per_day": 50.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 25,
+      "product_id": 25,
+      "primary_coverage_per_day": 50.0,
+      "secondary_coverage_per_day": 50.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 26,
+      "product_id": 33,
+      "primary_coverage_per_day": 50.0,
+      "secondary_coverage_per_day": 50.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 27,
+      "product_id": 26,
+      "primary_coverage_per_day": 12.0,
+      "secondary_coverage_per_day": 24.3,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 28,
+      "product_id": 27,
+      "primary_coverage_per_day": 12.0,
+      "secondary_coverage_per_day": 24.3,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 29,
+      "product_id": 28,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 24.3,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 30,
+      "product_id": 29,
+      "primary_coverage_per_day": 15.5,
+      "secondary_coverage_per_day": 10.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 31,
+      "product_id": 30,
+      "primary_coverage_per_day": 15.5,
+      "secondary_coverage_per_day": 10.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 32,
+      "product_id": 31,
+      "primary_coverage_per_day": 15.5,
+      "secondary_coverage_per_day": 10.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 33,
+      "product_id": 32,
+      "primary_coverage_per_day": 20.0,
+      "secondary_coverage_per_day": 20.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 34,
+      "product_id": 34,
+      "primary_coverage_per_day": 15.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 35,
+      "product_id": 35,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 3,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 36,
+      "product_id": 36,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 3,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 37,
+      "product_id": 37,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 3,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 38,
+      "product_id": 38,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 3,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 39,
+      "product_id": 39,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 3,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 40,
+      "product_id": 40,
+      "primary_coverage_per_day": 10.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 3,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 41,
+      "product_id": 41,
+      "primary_coverage_per_day": 10.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 3,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 42,
+      "product_id": 42,
+      "primary_coverage_per_day": 10.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 3,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 43,
+      "product_id": 43,
+      "primary_coverage_per_day": 10.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 3,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 44,
+      "product_id": 45,
+      "primary_coverage_per_day": 18.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 1,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 45,
+      "product_id": 46,
+      "primary_coverage_per_day": 18.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 1,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 46,
+      "product_id": 47,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 1,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 47,
+      "product_id": 48,
+      "primary_coverage_per_day": 14.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 1,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 48,
+      "product_id": 49,
+      "primary_coverage_per_day": 9.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 1,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 49,
+      "product_id": 50,
+      "primary_coverage_per_day": 9.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 1,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 50,
+      "product_id": 44,
+      "primary_coverage_per_day": 15.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 1,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 51,
+      "product_id": 70,
+      "primary_coverage_per_day": 55.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 3,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 52,
+      "product_id": 71,
+      "primary_coverage_per_day": 40.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 3,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 53,
+      "product_id": 75,
+      "primary_coverage_per_day": 10.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 1,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 54,
+      "product_id": 72,
+      "primary_coverage_per_day": 15.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 1,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 55,
+      "product_id": 76,
+      "primary_coverage_per_day": 50.0,
+      "secondary_coverage_per_day": 50.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 45000.0,
+      "local_salary_month_local": 0.0
+    },
+    {
+      "id": 56,
+      "product_id": 78,
+      "primary_coverage_per_day": 15.0,
+      "secondary_coverage_per_day": 0.0,
+      "inhouse_count": 2,
+      "local_count": 0,
+      "inhouse_salary_month_local": 40000.0,
+      "local_salary_month_local": 0.0
+    }
+  ]
+}

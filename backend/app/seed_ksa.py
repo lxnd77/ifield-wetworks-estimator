@@ -19,6 +19,12 @@ Design notes (see README for the full writeup):
     PRIMARY / SECONDARY coverage-per-day for whatever work type the row
     describes (ceiling, punning, paint...), matching how the source sheet
     itself reuses those columns.
+
+Historical reference only -- seed.py no longer reads this module. It now
+loads app/seed_data_ksa.json (see dump_seed_data.py), which reflects the
+catalog as it stands after admin cleanup (BOM item renames, vendor
+assignments, per-family purchasing companies, restructured/shared BOM
+lines) rather than this original bundled-line reverse-engineering.
 """
 
 # (lbr_key -> (primary_coverage_per_day, secondary_coverage_per_day, inhouse_count,

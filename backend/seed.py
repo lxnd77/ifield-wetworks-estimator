@@ -1,122 +1,126 @@
 """Run once to (re)create the schema and load the Wetworks product catalog +
 KSA country seed data. Safe to re-run: it wipes and rebuilds.
 
+The catalog is loaded verbatim from app/seed_data_ksa.json -- a full export
+of the actual, cleaned-up catalog (BOM item names distinct from their
+product, per-item vendor assignments, per-family purchasing companies,
+shared/restructured BOM lines) rather than the original raw workbook
+extraction. See app/seed_data_ksa.json's own place in git history for what
+changed and when; regenerate it (see dump_seed_data.py) whenever further
+catalog cleanup happens in an admin session, so it doesn't get lost on the
+next re-seed.
+
 Usage:  python seed.py
 """
 import sys
 import os
+import json
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.database import Base, engine, SessionLocal
 from app import models
-from app.seed_products import PRODUCTS
-from app.seed_ksa import (
-    KSA_COUNTRY, PRODUCT_COVERAGE_MAP, PRODUCT_MATERIAL_MAP, LBR_COVERAGE,
-    PAINT_ITEMIZED_BOM, GYPSUM_ITEMIZED_BOM,
-)
+
+SEED_DATA_PATH = os.path.join(os.path.dirname(__file__), "app", "seed_data_ksa.json")
 
 
 def run():
+    with open(SEED_DATA_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
-        # 0. Default purchasing route for Wetworks: all Wetworks purchases are
-        #    routed through the Dubai entity, which then buys BOM items from
-        #    the actual per-item vendors (set individually on SupportItem).
-        dubai = models.PurchasingCompany(
-            name="I FIELD FURNISHING TRADING LLC", country_name="UAE",
-            notes="Default purchasing company for Wetworks line items.",
-        )
-        db.add(dubai)
-        db.flush()
+        # Each *_id_map translates the JSON's source ids (from the dev DB
+        # this was dumped from) to the freshly-assigned ids in this DB --
+        # letting the DB pick its own ids avoids fighting Postgres's
+        # sequence/identity handling on a direct id insert.
+        vendor_id_map = {}
+        for row in data["vendors"]:
+            v = models.Vendor(name=row["name"], notes=row.get("notes"))
+            db.add(v)
+            db.flush()
+            vendor_id_map[row["id"]] = v.id
 
-        # 1. Products
-        product_by_name = {}
-        for name, uom, category, default_price in PRODUCTS:
-            has_material = name in PRODUCT_MATERIAL_MAP
-            has_coverage = name in PRODUCT_COVERAGE_MAP
+        purchasing_company_id_map = {}
+        for row in data["purchasing_companies"]:
+            pc = models.PurchasingCompany(
+                name=row["name"], country_name=row.get("country_name"), notes=row.get("notes"),
+            )
+            db.add(pc)
+            db.flush()
+            purchasing_company_id_map[row["id"]] = pc.id
+
+        selling_company_id_map = {}
+        for row in data["selling_companies"]:
+            sc = models.SellingCompany(
+                name=row["name"], country_name=row.get("country_name"), notes=row.get("notes"),
+            )
+            db.add(sc)
+            db.flush()
+            selling_company_id_map[row["id"]] = sc.id
+
+        country_id_map = {}
+        for row in data["countries"]:
+            country = models.Country(**{k: v for k, v in row.items() if k != "id"})
+            db.add(country)
+            db.flush()
+            country_id_map[row["id"]] = country.id
+
+        product_id_map = {}
+        for row in data["wetworks_products"]:
             p = models.WetworksProduct(
-                name=name, uom=uom, category=category,
-                needs_setup=not (has_material and has_coverage),
-                purchasing_company_id=dubai.id,
+                name=row["name"], uom=row["uom"], category=row["category"],
+                default_code=row.get("default_code"), odoo_id=row.get("odoo_id"),
+                active=bool(row.get("active", True)), needs_setup=bool(row.get("needs_setup", True)),
+                notes=row.get("notes"),
+                purchasing_company_id=purchasing_company_id_map.get(row.get("purchasing_company_id")),
+                default_vendor_id=vendor_id_map.get(row.get("default_vendor_id")),
+                consumable_pct=row.get("consumable_pct", 0.0), ohp_pct=row.get("ohp_pct", 0.0),
             )
             db.add(p)
-            product_by_name[name] = p
-        db.flush()
+            db.flush()
+            product_id_map[row["id"]] = p.id
 
-        # 2. Country
-        country = models.Country(**KSA_COUNTRY)
-        db.add(country)
-        db.flush()
-
-        # 3. Bundled "primary material" support item + BOM line + price, for every
-        #    product that has Estimate Form data. CMBL%/OH% are product-level
-        #    (consumable_pct/ohp_pct), applied by calc.py to the primary line only.
-        for name, (unit_price, wastage, cmbl, oh) in PRODUCT_MATERIAL_MAP.items():
-            product = product_by_name.get(name)
-            if not product:
-                continue
-            product.consumable_pct = cmbl
-            product.ohp_pct = oh
-            si = models.SupportItem(name=name, default_code=None, uom=product.uom)
+        support_item_id_map = {}
+        for row in data["support_items"]:
+            si = models.SupportItem(
+                name=row["name"], default_code=row.get("default_code"), odoo_id=row.get("odoo_id"),
+                uom=row["uom"], notes=row.get("notes"), purchase_category=row.get("purchase_category"),
+                default_vendor_id=vendor_id_map.get(row.get("default_vendor_id")),
+            )
             db.add(si)
             db.flush()
+            support_item_id_map[row["id"]] = si.id
+
+        for row in data["bom_lines"]:
             db.add(models.BomLine(
-                product_id=product.id, support_item_id=si.id,
-                qty_per_unit=1.0, wastage_pct=wastage,
-                role="primary", sort_order=0,
+                product_id=product_id_map[row["product_id"]],
+                support_item_id=support_item_id_map[row["support_item_id"]],
+                qty_per_unit=row["qty_per_unit"], wastage_pct=row.get("wastage_pct", 0.0),
+                role=row.get("role", "primary"), sort_order=row.get("sort_order", 0),
             ))
+
+        for row in data["country_material_prices"]:
             db.add(models.CountryMaterialPrice(
-                country_id=country.id, support_item_id=si.id, unit_price_local=unit_price,
+                country_id=country_id_map[row["country_id"]],
+                support_item_id=support_item_id_map[row["support_item_id"]],
+                unit_price_local=row["unit_price_local"],
             ))
 
-        # 4. Replace bundled BOM with itemized BOM for Paint + Gypsum Ceiling families
-        #    -- these have their own per-component prices, not a CMBL/OH markup.
-        for family_map, sort_start in ((PAINT_ITEMIZED_BOM, 0), (GYPSUM_ITEMIZED_BOM, 0)):
-            for product_name, lines in family_map.items():
-                product = product_by_name.get(product_name)
-                if not product:
-                    continue
-                product.consumable_pct = 0.0
-                product.ohp_pct = 0.0
-                # remove the bundled line for this product
-                db.query(models.BomLine).filter(models.BomLine.product_id == product.id).delete()
-                for i, (comp_name, code, uom, qty, wastage, price) in enumerate(lines):
-                    si = db.query(models.SupportItem).filter(models.SupportItem.name == comp_name).first()
-                    if not si:
-                        si = models.SupportItem(name=comp_name, default_code=code, uom=uom)
-                        db.add(si)
-                        db.flush()
-                    db.add(models.BomLine(
-                        product_id=product.id, support_item_id=si.id,
-                        qty_per_unit=qty, wastage_pct=wastage,
-                        role="fixing" if i > 0 else "primary", sort_order=i,
-                    ))
-                    existing_price = db.query(models.CountryMaterialPrice).filter(
-                        models.CountryMaterialPrice.country_id == country.id,
-                        models.CountryMaterialPrice.support_item_id == si.id,
-                    ).first()
-                    if not existing_price:
-                        db.add(models.CountryMaterialPrice(
-                            country_id=country.id, support_item_id=si.id, unit_price_local=price,
-                        ))
-
-        # 5. Coverage rates
-        for name, lbr_key in PRODUCT_COVERAGE_MAP.items():
-            product = product_by_name.get(name)
-            if not product:
-                continue
-            primary, secondary, inhouse_n, local_n, inhouse_salary, local_salary = LBR_COVERAGE[lbr_key]
+        for row in data["coverage_rates"]:
             db.add(models.CoverageRate(
-                product_id=product.id, primary_coverage_per_day=primary,
-                secondary_coverage_per_day=secondary, inhouse_count=inhouse_n, local_count=local_n,
-                inhouse_salary_month_local=inhouse_salary, local_salary_month_local=local_salary,
+                product_id=product_id_map[row["product_id"]],
+                primary_coverage_per_day=row["primary_coverage_per_day"],
+                secondary_coverage_per_day=row.get("secondary_coverage_per_day"),
+                inhouse_count=row.get("inhouse_count", 0), local_count=row.get("local_count", 0),
+                inhouse_salary_month_local=row.get("inhouse_salary_month_local", 0.0),
+                local_salary_month_local=row.get("local_salary_month_local", 0.0),
             ))
 
         db.commit()
 
-        total = len(PRODUCTS)
+        total = len(data["wetworks_products"])
         configured = db.query(models.WetworksProduct).filter(models.WetworksProduct.needs_setup == False).count()
         print(f"Seeded {total} products ({configured} fully configured for KSA, {total - configured} flagged needs_setup).")
         print(f"Support items: {db.query(models.SupportItem).count()}")
