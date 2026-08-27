@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, Fragment } from "react";
 import { useParams, Link } from "react-router-dom";
 import api, { money, num } from "../api";
 
@@ -34,6 +34,9 @@ const lineFields = (l) => ({
   margin_pct_override: l.margin_pct_override ?? null,
   drawing_no: l.drawing_no || "",
   remark: l.remark || "",
+  description: l.description || "",
+  dimension: l.dimension || "",
+  item_code: l.item_code || "",
 });
 const locFields = (l) => ({ name: l.name });
 
@@ -42,6 +45,7 @@ export default function ProjectDetail() {
   const [project, setProject] = useState(null);
   const [products, setProducts] = useState([]);
   const [costMap, setCostMap] = useState({});
+  const [sellingCompanies, setSellingCompanies] = useState([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -49,6 +53,7 @@ export default function ProjectDetail() {
   const [savedLines, setSavedLines] = useState([]);
   const [draftLocations, setDraftLocations] = useState([]);
   const [draftLines, setDraftLines] = useState([]);
+  const [componentsByLineId, setComponentsByLineId] = useState({});
 
   const load = useCallback(() => {
     Promise.all([
@@ -56,19 +61,23 @@ export default function ProjectDetail() {
       api.get(`/projects/${id}/estimate-lines`),
       api.get(`/projects/${id}/product-costs`),
       api.get("/products"),
-    ]).then(([projectRes, linesRes, costsRes, productsRes]) => {
+      api.get("/selling-companies"),
+    ]).then(([projectRes, linesRes, costsRes, productsRes, sellingRes]) => {
       setProject(projectRes.data);
       setProducts(productsRes.data);
       setCostMap(costsRes.data);
+      setSellingCompanies(sellingRes.data);
       const locs = projectRes.data.locations;
       const lines = linesRes.data.map((l) => ({
         id: l.id, location_id: l.location_id, product_id: l.product_id, qty: l.qty,
         margin_pct_override: l.margin_pct_override, drawing_no: l.drawing_no, remark: l.remark,
+        description: l.description, dimension: l.dimension, item_code: l.item_code,
       }));
       setSavedLocations(locs);
       setSavedLines(lines);
       setDraftLocations(locs);
       setDraftLines(lines);
+      setComponentsByLineId(Object.fromEntries(linesRes.data.map((l) => [l.id, l.components])));
     });
   }, [id]);
   useEffect(load, [load]);
@@ -169,6 +178,27 @@ export default function ProjectDetail() {
     }
   };
 
+  const saveComponentCode = async (lineId, componentId, itemCode) => {
+    const res = await api.put(`/estimate-line-components/${componentId}/code`, { item_code: itemCode || null });
+    setComponentsByLineId((prev) => ({
+      ...prev,
+      [lineId]: (prev[lineId] || []).map((c) => (c.id === componentId ? res.data : c)),
+    }));
+  };
+
+  const saveProjectMeta = async (patch) => {
+    const payload = {
+      name: project.name, code: project.code, country_id: project.country_id,
+      selling_company_id: project.selling_company_id, client_name: project.client_name,
+      address: project.address, estimator_name: project.estimator_name,
+      start_date: project.start_date, end_date: project.end_date,
+      default_margin_pct: project.default_margin_pct, display_currency: project.display_currency,
+      notes: project.notes, ...patch,
+    };
+    const res = await api.put(`/projects/${id}`, payload);
+    setProject(res.data);
+  };
+
   const download = async (kind) => {
     setError("");
     try {
@@ -196,15 +226,19 @@ export default function ProjectDetail() {
         <Link to="/" className="text-xs text-ruby hover:underline">&larr; All projects</Link>
         <div className="flex items-start justify-between mt-1">
           <div>
-            <h1 className="text-xl font-semibold text-ink">{project.name}</h1>
+            <h1 className="text-xl font-semibold text-ink">
+              {project.name}
+              {project.code && <span className="text-ink/40 font-normal"> ({project.code})</span>}
+            </h1>
             <div className="text-xs text-ink/60 mt-1">
               {project.country.name} &middot; {project.start_date} &rarr; {project.end_date} &middot; margin {project.default_margin_pct}%
+              {project.selling_company && <> &middot; sold via {project.selling_company.name}</>}
               {project.country.is_template && (
                 <span className="ml-2 text-amber-600 font-medium">country data not yet configured</span>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {dirty && (
               <button onClick={doSave} disabled={saving} className="text-sm px-3 py-2 rounded-md bg-ruby text-white hover:bg-ruby-dark">
                 {saving ? "Saving..." : "Save changes"}
@@ -216,12 +250,17 @@ export default function ProjectDetail() {
             <button onClick={() => download("bom")} className="text-sm px-3 py-2 rounded-md border bg-white hover:bg-slate-50">
               Export BOM (.xlsx)
             </button>
+            <button onClick={() => download("product-import")} className="text-sm px-3 py-2 rounded-md border bg-white hover:bg-slate-50">
+              Export Product Import for Odoo (.zip)
+            </button>
           </div>
         </div>
         {dirty && !saving && (
           <div className="text-xs text-amber-600 mt-2">Unsaved changes -- click Save to persist them.</div>
         )}
         {error && <div className="text-xs text-red-600 mt-2">{error}</div>}
+
+        <ProjectMetaEditor project={project} sellingCompanies={sellingCompanies} onSave={saveProjectMeta} />
       </div>
 
       {summary && (
@@ -243,10 +282,12 @@ export default function ProjectDetail() {
             products={products}
             costMap={costMap}
             project={project}
+            componentsByLineId={componentsByLineId}
             onRemoveLocation={() => removeLocation(loc.id)}
             onAddLine={(line) => addLine(loc.id, line)}
             onUpdateLine={updateLine}
             onRemoveLine={removeLine}
+            onSaveComponentCode={saveComponentCode}
           />
         ))}
 
@@ -279,6 +320,61 @@ function AddLocationForm({ onAdd }) {
   );
 }
 
+function ProjectMetaEditor({ project, sellingCompanies, onSave }) {
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState(project.code || "");
+  const [sellingCompanyId, setSellingCompanyId] = useState(project.selling_company_id || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setCode(project.code || "");
+    setSellingCompanyId(project.selling_company_id || "");
+  }, [project.id, project.code, project.selling_company_id]);
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="text-xs text-ruby hover:underline mt-2">
+        Edit project code / selling company
+      </button>
+    );
+  }
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onSave({ code: code || null, selling_company_id: sellingCompanyId ? Number(sellingCompanyId) : null });
+      setOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="flex flex-wrap items-end gap-2 mt-2 bg-white border rounded-md p-3">
+      <div>
+        <label className="text-xs text-ink/60">Project code</label>
+        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. FLH" className="w-32 border rounded-md px-2 py-1.5 text-sm" />
+      </div>
+      <div>
+        <label className="text-xs text-ink/60">Selling company</label>
+        <select value={sellingCompanyId} onChange={(e) => setSellingCompanyId(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm">
+          <option value="">--</option>
+          {sellingCompanies.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </div>
+      <button disabled={saving} className="text-sm px-3 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
+        {saving ? "Saving..." : "Save"}
+      </button>
+      <button type="button" onClick={() => setOpen(false)} className="text-sm px-3 py-1.5 rounded-md border bg-white">
+        Cancel
+      </button>
+    </form>
+  );
+}
+
 function SummaryStat({ label, value, highlight, warn }) {
   return (
     <div className={`rounded-lg border p-3 bg-white ${highlight ? "border-ruby/40" : ""} ${warn ? "border-amber-300" : ""}`}>
@@ -288,9 +384,10 @@ function SummaryStat({ label, value, highlight, warn }) {
   );
 }
 
-function LocationBlock({ location, lines, products, costMap, project, onRemoveLocation, onAddLine, onUpdateLine, onRemoveLine }) {
+function LocationBlock({ location, lines, products, costMap, project, componentsByLineId, onRemoveLocation, onAddLine, onUpdateLine, onRemoveLine, onSaveComponentCode }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
   const total = lines.reduce((s, l) => s + lineCosts(l, costMap, project).costTotal, 0);
   const productById = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
 
@@ -316,6 +413,7 @@ function LocationBlock({ location, lines, products, costMap, project, onRemoveLo
           <thead>
             <tr className="text-left text-xs text-ink/40 border-b">
               <th className="px-4 py-2 font-normal">Product</th>
+              <th className="px-2 py-2 font-normal">Item code</th>
               <th className="px-2 py-2 font-normal text-right">Qty</th>
               <th className="px-2 py-2 font-normal text-right">Material/unit</th>
               <th className="px-2 py-2 font-normal text-right">Labor/unit</th>
@@ -328,9 +426,11 @@ function LocationBlock({ location, lines, products, costMap, project, onRemoveLo
             {lines.map((l) => {
               const product = productById[l.product_id];
               const c = lineCosts(l, costMap, project);
+              const components = componentsByLineId[l.id] || [];
+              const isTempLine = typeof l.id === "string";
               return editingId === l.id ? (
                 <tr key={l.id} className="border-b last:border-0">
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <LineItemForm
                       products={products}
                       initial={l}
@@ -343,29 +443,47 @@ function LocationBlock({ location, lines, products, costMap, project, onRemoveLo
                   </td>
                 </tr>
               ) : (
-                <tr key={l.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => setEditingId(l.id)}>
-                  <td className="px-4 py-2">
-                    {product?.name || `#${l.product_id}`}
-                    {c.needsSetup && (
-                      <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                        needs setup
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-2 py-2 text-right">{num(l.qty, 1)} {product?.uom}</td>
-                  <td className="px-2 py-2 text-right">{money(c.materialPerUnit)}</td>
-                  <td className="px-2 py-2 text-right">{money(c.laborPerUnit)}</td>
-                  <td className="px-2 py-2 text-right">{l.margin_pct_override != null ? `${l.margin_pct_override}%` : "default"}</td>
-                  <td className="px-2 py-2 text-right font-medium">{money(c.costTotal)}</td>
-                  <td className="px-4 py-2 text-right">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onRemoveLine(l.id); }}
-                      className="text-xs text-red-500 hover:underline"
-                    >
-                      remove
-                    </button>
-                  </td>
-                </tr>
+                <Fragment key={l.id}>
+                  <tr className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => setEditingId(l.id)}>
+                    <td className="px-4 py-2">
+                      {product?.name || `#${l.product_id}`}
+                      {c.needsSetup && (
+                        <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                          needs setup
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-ink/60">{l.item_code || <span className="text-ink/30">--</span>}</td>
+                    <td className="px-2 py-2 text-right">{num(l.qty, 1)} {product?.uom}</td>
+                    <td className="px-2 py-2 text-right">{money(c.materialPerUnit)}</td>
+                    <td className="px-2 py-2 text-right">{money(c.laborPerUnit)}</td>
+                    <td className="px-2 py-2 text-right">{l.margin_pct_override != null ? `${l.margin_pct_override}%` : "default"}</td>
+                    <td className="px-2 py-2 text-right font-medium">{money(c.costTotal)}</td>
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      {!isTempLine && components.length > 0 && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === l.id ? null : l.id); }}
+                          className="text-xs text-ink/50 hover:underline mr-2"
+                        >
+                          {expandedId === l.id ? "hide BOM" : "BOM codes"}
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onRemoveLine(l.id); }}
+                        className="text-xs text-red-500 hover:underline"
+                      >
+                        remove
+                      </button>
+                    </td>
+                  </tr>
+                  {expandedId === l.id && (
+                    <tr className="border-b last:border-0 bg-slate-50">
+                      <td colSpan={8} className="px-4 py-3">
+                        <BomCodeEditor components={components} onSave={(compId, code) => onSaveComponentCode(l.id, compId, code)} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
           </tbody>
@@ -388,12 +506,59 @@ function LocationBlock({ location, lines, products, costMap, project, onRemoveLo
   );
 }
 
+function BomCodeEditor({ components, onSave }) {
+  return (
+    <div>
+      <div className="text-xs font-medium text-ink/60 mb-2">
+        BOM item codes -- used to build each material's Odoo reference (project code + this code).
+      </div>
+      <table className="w-full text-xs max-w-2xl">
+        <thead>
+          <tr className="text-left text-ink/40 border-b">
+            <th className="py-1 font-normal">Support item</th>
+            <th className="py-1 font-normal text-right">Qty</th>
+            <th className="py-1 pl-3 font-normal">Item code</th>
+          </tr>
+        </thead>
+        <tbody>
+          {components.map((c) => (
+            <BomCodeRow key={c.id} component={c} onSave={(code) => onSave(c.id, code)} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function BomCodeRow({ component, onSave }) {
+  const [value, setValue] = useState(component.item_code || "");
+  useEffect(() => setValue(component.item_code || ""), [component.item_code]);
+  return (
+    <tr className="border-b last:border-0">
+      <td className="py-1">{component.support_item.name}</td>
+      <td className="py-1 text-right">{num(component.qty, 0)} {component.support_item.uom}</td>
+      <td className="py-1 pl-3">
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={() => value !== (component.item_code || "") && onSave(value)}
+          placeholder="e.g. PT-01"
+          className="w-28 border rounded px-2 py-1 text-xs"
+        />
+      </td>
+    </tr>
+  );
+}
+
 function LineItemForm({ products, initial, onCancel, onSubmit }) {
   const [productId, setProductId] = useState(initial?.product_id ?? "");
   const [qty, setQty] = useState(initial?.qty ?? "");
   const [margin, setMargin] = useState(initial?.margin_pct_override ?? "");
   const [drawingNo, setDrawingNo] = useState(initial?.drawing_no ?? "");
   const [remark, setRemark] = useState(initial?.remark ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [dimension, setDimension] = useState(initial?.dimension ?? "");
+  const [itemCode, setItemCode] = useState(initial?.item_code ?? "");
   const [search, setSearch] = useState("");
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
@@ -408,6 +573,9 @@ function LineItemForm({ products, initial, onCancel, onSubmit }) {
       margin_pct_override: margin === "" ? null : Number(margin),
       drawing_no: drawingNo || null,
       remark: remark || null,
+      description: description || null,
+      dimension: dimension || null,
+      item_code: itemCode || null,
     });
   };
 
@@ -439,12 +607,24 @@ function LineItemForm({ products, initial, onCancel, onSubmit }) {
         <input type="number" step="0.1" placeholder="default" value={margin} onChange={(e) => setMargin(e.target.value)} className="w-24 border rounded-md px-2 py-1.5 text-sm" />
       </div>
       <div>
+        <label className="text-xs text-ink/60">Item code</label>
+        <input value={itemCode} onChange={(e) => setItemCode(e.target.value)} placeholder="e.g. PT-01" className="w-24 border rounded-md px-2 py-1.5 text-sm" />
+      </div>
+      <div>
         <label className="text-xs text-ink/60">Drawing #</label>
         <input value={drawingNo} onChange={(e) => setDrawingNo(e.target.value)} className="w-24 border rounded-md px-2 py-1.5 text-sm" />
+      </div>
+      <div>
+        <label className="text-xs text-ink/60">Dimension</label>
+        <input value={dimension} onChange={(e) => setDimension(e.target.value)} className="w-24 border rounded-md px-2 py-1.5 text-sm" />
       </div>
       <div className="flex-1 min-w-[140px]">
         <label className="text-xs text-ink/60">Remark</label>
         <input value={remark} onChange={(e) => setRemark(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm" />
+      </div>
+      <div className="flex-1 min-w-[140px]">
+        <label className="text-xs text-ink/60">Description</label>
+        <input value={description} onChange={(e) => setDescription(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm" />
       </div>
       <button className="text-sm px-4 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
         {initial ? "Save line" : "Add"}

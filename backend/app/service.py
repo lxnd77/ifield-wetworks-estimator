@@ -11,7 +11,7 @@ def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.Es
     country = project.country
 
     price_lookup = price_lookup_factory(db, country.id)
-    material = compute_material_cost(product.bom_lines, price_lookup)
+    material = compute_material_cost(product.bom_lines, price_lookup, product.consumable_pct, product.ohp_pct)
     labor = compute_labor_cost(product.coverage_rate, country, project.duration_months)
 
     line.material_cost_per_unit = material.cost_per_unit
@@ -19,10 +19,13 @@ def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.Es
     line.wages_cost_per_unit = labor.wages_per_unit
     line.labor_expenses_per_unit = labor.expenses_per_unit
 
-    # replace component snapshot
-    for c in list(line.components):
-        db.delete(c)
-    db.flush()
+    # Upsert the component snapshot by support_item_id rather than
+    # delete-all/recreate, so a user-entered item_code (set during
+    # estimation, independent of costing) survives a recompute triggered by
+    # rate/BOM changes. Rows for support items no longer in the BOM are
+    # dropped.
+    existing_by_support_item = {c.support_item_id: c for c in line.components}
+    seen_support_item_ids = set()
     for comp in material.components:
         # You can't buy a fraction of a drum/roll/pack -- the theoretical
         # consumption is rounded up to the nearest whole purchase unit for
@@ -31,13 +34,20 @@ def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.Es
         raw_qty = comp.qty_per_unit * line.qty
         rounded_qty = math.ceil(raw_qty)
         price_per_uom = (comp.cost_per_unit / comp.qty_per_unit) if comp.qty_per_unit else 0.0
-        db.add(models.EstimateLineComponent(
-            estimate_line_id=line.id,
-            support_item_id=comp.support_item_id,
-            qty=rounded_qty,
-            unit_cost=comp.unit_price_usd,
-            total_cost=rounded_qty * price_per_uom,
-        ))
+        seen_support_item_ids.add(comp.support_item_id)
+        row = existing_by_support_item.get(comp.support_item_id)
+        if row is None:
+            row = models.EstimateLineComponent(
+                estimate_line_id=line.id,
+                support_item_id=comp.support_item_id,
+            )
+            db.add(row)
+        row.qty = rounded_qty
+        row.unit_cost = comp.unit_price_usd
+        row.total_cost = rounded_qty * price_per_uom
+    for support_item_id, row in existing_by_support_item.items():
+        if support_item_id not in seen_support_item_ids:
+            db.delete(row)
     return line
 
 

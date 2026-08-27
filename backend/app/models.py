@@ -6,6 +6,41 @@ from sqlalchemy.orm import relationship
 from .database import Base
 
 
+class Vendor(Base):
+    """An external supplier a SupportItem (BOM item) is actually bought from,
+    e.g. a specific tile or paint supplier. Distinct from PurchasingCompany,
+    which is the I-Field entity that buys from this vendor on the purchasing
+    country's behalf."""
+    __tablename__ = "vendors"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False, unique=True)
+    notes = Column(Text, nullable=True)
+
+
+class PurchasingCompany(Base):
+    """An I-Field entity that buys a finished Wetworks line item on behalf of
+    the selling company, e.g. 'I FIELD FURNISHING TRADING LLC' (Dubai) for
+    Wetworks. Tied to a WetworksProduct as its default purchasing route."""
+    __tablename__ = "purchasing_companies"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False, unique=True)
+    country_name = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+
+
+class SellingCompany(Base):
+    """An I-Field entity that invoices the client, e.g. an I-Field Hong Kong
+    entity for sales. Selected per project."""
+    __tablename__ = "selling_companies"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False, unique=True)
+    country_name = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+
+
 class SupportItem(Base):
     """A purchasable material / BOM component (cement, gypsum board, paint tin,
     screws...). A Wetworks product's own 'primary' material (e.g. the tile itself)
@@ -16,10 +51,23 @@ class SupportItem(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     default_code = Column(String, nullable=True)  # Odoo internal reference
+    # Odoo's own product.template external id (e.g.
+    # "__export__.product_template_1546_5560096f"), once this item has been
+    # imported and the Odoo-generated id is known. Distinct from
+    # default_code (the Odoo internal reference/SKU) -- this is what makes a
+    # re-import an update instead of a duplicate. Populated in export sheets
+    # whenever set.
+    odoo_id = Column(String, nullable=True)
     uom = Column(String, nullable=False, default="Pcs")
     notes = Column(Text, nullable=True)
+    # Independent of WetworksProduct.category -- classifies the BOM item
+    # itself for purchasing/export purposes (which categories get a
+    # user-entered item code during estimation: Paint/Tile/Stone/Metal).
+    purchase_category = Column(String, nullable=True)
+    default_vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
 
     prices = relationship("CountryMaterialPrice", back_populates="support_item", cascade="all, delete-orphan")
+    default_vendor = relationship("Vendor")
 
 
 class WetworksProduct(Base):
@@ -31,15 +79,34 @@ class WetworksProduct(Base):
     uom = Column(String, nullable=False)
     category = Column(String, nullable=False)  # Tile / False Ceiling / Paint / Stone / Counters / Flooring
     default_code = Column(String, nullable=True)
+    # Odoo's own product.template external id, once known -- see
+    # SupportItem.odoo_id for what this is and why it's separate from
+    # default_code.
+    odoo_id = Column(String, nullable=True)
     active = Column(Boolean, default=True)
     # True until an admin has supplied coverage-rate + BOM data for this product.
     needs_setup = Column(Boolean, default=True)
     notes = Column(Text, nullable=True)
+    # Default purchasing route: the I-Field entity that buys this finished
+    # line item on behalf of the project's selling company (e.g. Dubai for
+    # Wetworks). default_vendor_id is an override for the rare case the
+    # line item is bought whole, directly from a vendor, bypassing the
+    # purchasing company.
+    purchasing_company_id = Column(Integer, ForeignKey("purchasing_companies.id"), nullable=True)
+    default_vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
+    # Material cost markup on the primary BOM line, historically "CMBL%" +
+    # overhead % in the source Estimate Form -- tracked per product (not per
+    # BOM line) since the source data is one CMBL/OH pair per product,
+    # applied only to its primary material.
+    consumable_pct = Column(Float, nullable=False, default=0.0)
+    ohp_pct = Column(Float, nullable=False, default=0.0)
 
     bom_lines = relationship("BomLine", back_populates="product", cascade="all, delete-orphan",
                               order_by="BomLine.sort_order")
     coverage_rate = relationship("CoverageRate", back_populates="product", uselist=False,
                                   cascade="all, delete-orphan")
+    purchasing_company = relationship("PurchasingCompany")
+    default_vendor = relationship("Vendor")
 
 
 class BomLine(Base):
@@ -54,8 +121,7 @@ class BomLine(Base):
     support_item_id = Column(Integer, ForeignKey("support_items.id"), nullable=False)
     qty_per_unit = Column(Float, nullable=False)  # before wastage
     wastage_pct = Column(Float, nullable=False, default=0.0)  # e.g. 0.1 = 10%
-    markup_pct = Column(Float, nullable=False, default=0.0)  # e.g. CMBL%+OH% combined, mainly on primary material
-    role = Column(String, nullable=False, default="fixing")  # 'primary' or 'fixing'
+    role = Column(String, nullable=False, default="fixing")  # 'primary' or 'fixing' -- consumable/OHP % (on the product) applies only to 'primary' lines
     sort_order = Column(Integer, nullable=False, default=0)
 
     product = relationship("WetworksProduct", back_populates="bom_lines")
@@ -150,7 +216,11 @@ class Project(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
+    # Short code (e.g. "FLH") used as the project half of the Odoo product
+    # reference code: f"{code} {item_code}" e.g. "FLH PT-01".
+    code = Column(String, nullable=True)
     country_id = Column(Integer, ForeignKey("countries.id"), nullable=False)
+    selling_company_id = Column(Integer, ForeignKey("selling_companies.id"), nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     client_name = Column(String, nullable=True)
     address = Column(String, nullable=True)
@@ -163,6 +233,7 @@ class Project(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     country = relationship("Country")
+    selling_company = relationship("SellingCompany")
     owner = relationship("User")
     locations = relationship("ProjectLocation", back_populates="project", cascade="all, delete-orphan")
     estimate_lines = relationship("EstimateLine", back_populates="project", cascade="all, delete-orphan")
@@ -195,7 +266,15 @@ class EstimateLine(Base):
     qty = Column(Float, nullable=False)
     margin_pct_override = Column(Float, nullable=True)
     drawing_no = Column(String, nullable=True)
-    remark = Column(String, nullable=True)
+    remark = Column(String, nullable=True)  # sale estimation export only
+    # Free-text product description -- distinct from `remark`, which is a
+    # sale-estimation-sheet-only field. Not currently surfaced in any export
+    # (was product-import's product_description column, removed).
+    description = Column(String, nullable=True)
+    dimension = Column(String, nullable=True)  # not currently surfaced in any export (was product-import's product_dimension column, removed)
+    # User-entered during estimation; combines with Project.code to form the
+    # Odoo product reference code for this line item.
+    item_code = Column(String, nullable=True)
 
     # computed / cached at save time (per unit, in USD)
     material_cost_per_unit = Column(Float, default=0.0)
@@ -223,6 +302,10 @@ class EstimateLineComponent(Base):
     qty = Column(Float, nullable=False)  # total qty for the line's full estimate qty
     unit_cost = Column(Float, nullable=False)  # USD per uom of the support item
     total_cost = Column(Float, nullable=False)
+    # User-entered during estimation; preserved across recompute_estimate_line
+    # (which upserts by support_item_id rather than delete/recreate) so it
+    # survives rate/BOM changes that trigger a recompute.
+    item_code = Column(String, nullable=True)
 
     estimate_line = relationship("EstimateLine", back_populates="components")
     support_item = relationship("SupportItem")

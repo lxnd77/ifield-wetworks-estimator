@@ -11,3 +11,5 @@ frontend/dist/
 .DS_Store
 .claude/
 backend/uvicorn.log
+backend/uvicorn_*.log
+backend/naming_template.xlsx

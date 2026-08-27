@@ -9,11 +9,15 @@ export default function AdminProductDetail() {
   const [countries, setCountries] = useState([]);
   const [countryId, setCountryId] = useState("");
   const [prices, setPrices] = useState({});
+  const [purchasingCompanies, setPurchasingCompanies] = useState([]);
+  const [vendors, setVendors] = useState([]);
 
   const load = () => {
     api.get(`/products/${id}`).then((r) => setProduct(r.data));
     api.get("/support-items").then((r) => setSupportItems(r.data));
     api.get("/countries").then((r) => setCountries(r.data));
+    api.get("/purchasing-companies").then((r) => setPurchasingCompanies(r.data));
+    api.get("/vendors").then((r) => setVendors(r.data));
   };
   useEffect(load, [id]);
 
@@ -41,6 +45,21 @@ export default function AdminProductDetail() {
     setPrices((p) => ({ ...p, [supportItemId]: res.data }));
   };
 
+  // Shared save path for all product-level fields (purchasing route,
+  // markup) -- always sends the full current product state so one editor's
+  // save can't clobber a field owned by another.
+  const saveProduct = async (overrides) => {
+    await api.put(`/products/${product.id}`, {
+      name: product.name, uom: product.uom, category: product.category,
+      default_code: product.default_code, odoo_id: product.odoo_id, notes: product.notes,
+      purchasing_company_id: product.purchasing_company_id,
+      default_vendor_id: product.default_vendor_id,
+      consumable_pct: product.consumable_pct, ohp_pct: product.ohp_pct,
+      ...overrides,
+    });
+    load();
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -48,6 +67,12 @@ export default function AdminProductDetail() {
         <h1 className="text-xl font-semibold text-slate-800 mt-1">{product.name}</h1>
         <div className="text-xs text-slate-500">{product.category} &middot; {product.uom}</div>
       </div>
+
+      <OdooIdEditor product={product} onSave={saveProduct} />
+
+      <PurchasingRouteEditor product={product} purchasingCompanies={purchasingCompanies} vendors={vendors} onSave={saveProduct} />
+
+      <MaterialMarkupEditor product={product} onSave={saveProduct} />
 
       <CoverageRateEditor product={product} onSaved={load} />
 
@@ -102,6 +127,155 @@ function PriceRow({ item, price, onSave }) {
         />
       </td>
     </tr>
+  );
+}
+
+function PurchasingRouteEditor({ product, purchasingCompanies, vendors, onSave }) {
+  const [purchasingCompanyId, setPurchasingCompanyId] = useState(product.purchasing_company_id || "");
+  const [defaultVendorId, setDefaultVendorId] = useState(product.default_vendor_id || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setPurchasingCompanyId(product.purchasing_company_id || "");
+    setDefaultVendorId(product.default_vendor_id || "");
+  }, [product.id, product.purchasing_company_id, product.default_vendor_id]);
+
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onSave({
+        purchasing_company_id: purchasingCompanyId ? Number(purchasingCompanyId) : null,
+        default_vendor_id: defaultVendorId ? Number(defaultVendorId) : null,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={save} className="bg-white border rounded-lg p-4">
+      <h2 className="font-medium text-slate-800 mb-1">Purchasing route</h2>
+      <p className="text-xs text-slate-500 mb-3">
+        Who buys this finished line item. Normally the purchasing company (e.g. I-Field Dubai for Wetworks), which in
+        turn buys the BOM materials from each item's own vendor. Set a direct vendor only when this item is bought
+        whole, straight from a vendor, bypassing the purchasing company.
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-slate-500">Purchasing company</label>
+          <select value={purchasingCompanyId} onChange={(e) => setPurchasingCompanyId(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm">
+            <option value="">--</option>
+            {purchasingCompanies.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-slate-500">Direct vendor override (optional)</label>
+          <select value={defaultVendorId} onChange={(e) => setDefaultVendorId(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm">
+            <option value="">--</option>
+            {vendors.map((v) => (
+              <option key={v.id} value={v.id}>{v.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <button disabled={saving} className="mt-3 text-sm px-4 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
+        {saving ? "Saving..." : "Save purchasing route"}
+      </button>
+    </form>
+  );
+}
+
+function OdooIdEditor({ product, onSave }) {
+  const [odooId, setOdooId] = useState(product.odoo_id || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => setOdooId(product.odoo_id || ""), [product.id, product.odoo_id]);
+
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onSave({ odoo_id: odooId || null });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={save} className="bg-white border rounded-lg p-4">
+      <h2 className="font-medium text-slate-800 mb-1">Odoo id</h2>
+      <p className="text-xs text-slate-500 mb-3">
+        Odoo's own product.template external id (e.g. "__export__.product_template_1546_5560096f"), once this
+        product has actually been imported into Odoo. Populates the "id" column in exports so a re-import updates
+        this record instead of creating a duplicate. Distinct from the item code entered during estimation.
+      </p>
+      <div className="max-w-md">
+        <input
+          value={odooId}
+          onChange={(e) => setOdooId(e.target.value)}
+          placeholder="e.g. __export__.product_template_1546_5560096f"
+          className="w-full border rounded-md px-2 py-1.5 text-sm font-mono"
+        />
+      </div>
+      <button disabled={saving} className="mt-3 text-sm px-4 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
+        {saving ? "Saving..." : "Save Odoo id"}
+      </button>
+    </form>
+  );
+}
+
+function MaterialMarkupEditor({ product, onSave }) {
+  const [consumablePct, setConsumablePct] = useState((product.consumable_pct * 100) ?? 0);
+  const [ohpPct, setOhpPct] = useState((product.ohp_pct * 100) ?? 0);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setConsumablePct(product.consumable_pct * 100);
+    setOhpPct(product.ohp_pct * 100);
+  }, [product.id, product.consumable_pct, product.ohp_pct]);
+
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onSave({
+        consumable_pct: Number(consumablePct || 0) / 100,
+        ohp_pct: Number(ohpPct || 0) / 100,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const primaryLines = product.bom_lines?.filter((l) => l.role === "primary") || [];
+
+  return (
+    <form onSubmit={save} className="bg-white border rounded-lg p-4">
+      <h2 className="font-medium text-slate-800 mb-1">Material markup</h2>
+      <p className="text-xs text-slate-500 mb-3">
+        Consumable % (CMBL) + OHP % (overhead), applied only to this product's primary material line
+        {primaryLines.length > 0 && (
+          <> ({primaryLines.map((l) => l.support_item.name).join(", ")})</>
+        )}
+        , matching the source Estimate Form.
+      </p>
+      <div className="grid grid-cols-2 gap-3 max-w-sm">
+        <div>
+          <label className="text-xs text-slate-500">Consumable % (CMBL)</label>
+          <input type="number" step="0.1" value={consumablePct} onChange={(e) => setConsumablePct(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="text-xs text-slate-500">OHP % (overhead)</label>
+          <input type="number" step="0.1" value={ohpPct} onChange={(e) => setOhpPct(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm" />
+        </div>
+      </div>
+      <button disabled={saving} className="mt-3 text-sm px-4 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
+        {saving ? "Saving..." : "Save material markup"}
+      </button>
+    </form>
   );
 }
 
@@ -213,8 +387,7 @@ function BomEditor({ product, supportItems, onChanged }) {
             <tr className="text-left text-xs text-slate-400 border-b">
               <th className="py-1 font-normal">Support item</th>
               <th className="py-1 font-normal text-right">Qty/unit</th>
-              <th className="py-1 font-normal text-right">Wastage %</th>
-              <th className="py-1 pr-3 font-normal text-right">Markup %</th>
+              <th className="py-1 pr-3 font-normal text-right">Wastage %</th>
               <th className="py-1 pl-3 font-normal">Role</th>
               <th></th>
             </tr>
@@ -223,7 +396,7 @@ function BomEditor({ product, supportItems, onChanged }) {
             {product.bom_lines.map((l) =>
               editingId === l.id ? (
                 <tr key={l.id} className="border-b last:border-0">
-                  <td colSpan={6} className="py-2">
+                  <td colSpan={5} className="py-2">
                     <BomLineForm
                       supportItems={supportItems}
                       productUom={product.uom}
@@ -237,8 +410,7 @@ function BomEditor({ product, supportItems, onChanged }) {
                 <tr key={l.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => setEditingId(l.id)}>
                   <td className="py-1.5">{l.support_item.name}</td>
                   <td className="py-1.5 text-right">{l.qty_per_unit}</td>
-                  <td className="py-1.5 text-right">{(l.wastage_pct * 100).toFixed(1)}</td>
-                  <td className="py-1.5 pr-3 text-right">{(l.markup_pct * 100).toFixed(1)}</td>
+                  <td className="py-1.5 pr-3 text-right">{(l.wastage_pct * 100).toFixed(1)}</td>
                   <td className="py-1.5 pl-3">{l.role}</td>
                   <td className="py-1.5 text-right">
                     <button onClick={(e) => { e.stopPropagation(); removeLine(l.id); }} className="text-xs text-red-500 hover:underline">
@@ -273,7 +445,6 @@ function BomLineForm({ supportItems, productUom, initial, onCancel, onSubmit }) 
   const [newUom, setNewUom] = useState(productUom);
   const [qty, setQty] = useState(initial?.qty_per_unit ?? "1");
   const [wastage, setWastage] = useState(initial?.wastage_pct ?? "0");
-  const [markup, setMarkup] = useState(initial?.markup_pct ?? "0");
   const [role, setRole] = useState(initial?.role ?? "fixing");
   const [saving, setSaving] = useState(false);
 
@@ -284,7 +455,6 @@ function BomLineForm({ supportItems, productUom, initial, onCancel, onSubmit }) 
       const payload = {
         qty_per_unit: Number(qty),
         wastage_pct: Number(wastage),
-        markup_pct: Number(markup),
         role,
         sort_order: initial?.sort_order ?? 0,
       };
@@ -324,10 +494,9 @@ function BomLineForm({ supportItems, productUom, initial, onCancel, onSubmit }) 
           <input placeholder="UoM" value={newUom} onChange={(e) => setNewUom(e.target.value)} className="w-24 border rounded-md px-2 py-1.5 text-sm" />
         </div>
       )}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <Field label="Qty/unit" value={qty} onChange={(e) => setQty(e.target.value)} required />
         <Field label="Wastage % (0.1 = 10%)" value={wastage} onChange={(e) => setWastage(e.target.value)} />
-        <Field label="Markup % (0.1 = 10%)" value={markup} onChange={(e) => setMarkup(e.target.value)} />
         <div>
           <label className="text-xs text-slate-500">Role</label>
           <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm">

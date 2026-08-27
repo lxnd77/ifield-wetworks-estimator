@@ -3,12 +3,65 @@ from typing import Optional, List
 from pydantic import BaseModel, ConfigDict
 
 
+class VendorOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    notes: Optional[str] = None
+
+
+class VendorIn(BaseModel):
+    name: str
+    notes: Optional[str] = None
+
+
+class PurchasingCompanyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    country_name: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class PurchasingCompanyIn(BaseModel):
+    name: str
+    country_name: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class SellingCompanyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    country_name: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class SellingCompanyIn(BaseModel):
+    name: str
+    country_name: Optional[str] = None
+    notes: Optional[str] = None
+
+
 class SupportItemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
     default_code: Optional[str] = None
+    odoo_id: Optional[str] = None
     uom: str
+    purchase_category: Optional[str] = None
+    default_vendor_id: Optional[int] = None
+    default_vendor: Optional[VendorOut] = None
+
+
+class SupportItemIn(BaseModel):
+    name: str
+    default_code: Optional[str] = None
+    odoo_id: Optional[str] = None
+    uom: str = "Pcs"
+    purchase_category: Optional[str] = None
+    default_vendor_id: Optional[int] = None
 
 
 class BomLineOut(BaseModel):
@@ -18,7 +71,6 @@ class BomLineOut(BaseModel):
     support_item: SupportItemOut
     qty_per_unit: float
     wastage_pct: float
-    markup_pct: float
     role: str
     sort_order: int
 
@@ -30,7 +82,6 @@ class BomLineIn(BaseModel):
     new_support_item_default_code: Optional[str] = None
     qty_per_unit: float
     wastage_pct: float = 0.0
-    markup_pct: float = 0.0
     role: str = "fixing"
     sort_order: int = 0
 
@@ -62,9 +113,16 @@ class ProductOut(BaseModel):
     uom: str
     category: str
     default_code: Optional[str] = None
+    odoo_id: Optional[str] = None
     active: bool
     needs_setup: bool
     notes: Optional[str] = None
+    purchasing_company_id: Optional[int] = None
+    purchasing_company: Optional[PurchasingCompanyOut] = None
+    default_vendor_id: Optional[int] = None
+    default_vendor: Optional[VendorOut] = None
+    consumable_pct: float = 0.0
+    ohp_pct: float = 0.0
 
 
 class ProductDetailOut(ProductOut):
@@ -83,7 +141,12 @@ class ProductIn(BaseModel):
     uom: str
     category: str
     default_code: Optional[str] = None
+    odoo_id: Optional[str] = None
     notes: Optional[str] = None
+    purchasing_company_id: Optional[int] = None
+    default_vendor_id: Optional[int] = None
+    consumable_pct: float = 0.0
+    ohp_pct: float = 0.0
 
 
 class CountryOut(BaseModel):
@@ -190,8 +253,11 @@ class ProjectOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
+    code: Optional[str] = None
     country_id: int
     country: CountryOut
+    selling_company_id: Optional[int] = None
+    selling_company: Optional[SellingCompanyOut] = None
     owner: Optional[UserOut] = None
     client_name: Optional[str] = None
     address: Optional[str] = None
@@ -207,7 +273,9 @@ class ProjectOut(BaseModel):
 
 class ProjectIn(BaseModel):
     name: str
+    code: Optional[str] = None
     country_id: int
+    selling_company_id: Optional[int] = None
     client_name: Optional[str] = None
     address: Optional[str] = None
     estimator_name: Optional[str] = None
@@ -220,11 +288,17 @@ class ProjectIn(BaseModel):
 
 class EstimateLineComponentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+    id: int
     support_item_id: int
     support_item: SupportItemOut
     qty: float
     unit_cost: float
     total_cost: float
+    item_code: Optional[str] = None
+
+
+class EstimateLineComponentCodeIn(BaseModel):
+    item_code: Optional[str] = None
 
 
 class EstimateLineOut(BaseModel):
@@ -238,6 +312,9 @@ class EstimateLineOut(BaseModel):
     margin_pct_override: Optional[float] = None
     drawing_no: Optional[str] = None
     remark: Optional[str] = None
+    description: Optional[str] = None
+    dimension: Optional[str] = None
+    item_code: Optional[str] = None
     material_cost_per_unit: float
     labor_cost_per_unit: float
     wages_cost_per_unit: float
@@ -256,3 +333,6 @@ class EstimateLineIn(BaseModel):
     margin_pct_override: Optional[float] = None
     drawing_no: Optional[str] = None
     remark: Optional[str] = None
+    description: Optional[str] = None
+    dimension: Optional[str] = None
+    item_code: Optional[str] = None
