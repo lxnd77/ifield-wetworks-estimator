@@ -66,10 +66,18 @@ docker compose up --build       # app on :80, api docs on :8000/docs
   are hardcoded to match the sample files exactly; if the client's Odoo
   schema changes, update the header lists here first, then the row-building
   logic.
-- `backend/app/seed_products.py` / `seed_ksa.py` — the actual extracted data
-  from the client's workbooks. `seed_ksa.py`'s module docstring explains the
-  design decisions (bundled vs. itemized BOM, why paint/gypsum ceiling got
-  full itemization and others didn't).
+- `backend/app/seed_data_ksa.json` — the actual catalog `seed.py` loads:
+  products, BOM lines, coverage rates, vendors, purchasing/selling
+  companies, country rate card. It's a live snapshot (via
+  `dump_seed_data.py`) of the catalog *as cleaned up through the admin UI*
+  (BOM item names distinct from their product, vendor assignments,
+  per-family purchasing companies) — **not** a hand-maintained source file.
+  After any admin-side catalog cleanup, re-run `python dump_seed_data.py`
+  against whichever DB you edited (local or, via `DATABASE_URL=... python
+  dump_seed_data.py`, production) so the work is captured before anyone
+  runs `seed.py` again and wipes it. `backend/app/seed_products.py` /
+  `seed_ksa.py` are the *original* reverse-engineered/verbatim workbook
+  data — kept for historical reference only, no longer read by `seed.py`.
 - `frontend/src/pages/ProjectDetail.jsx` — the core estimator UI (locations,
   line items, live cost breakdown, export buttons).
 - `frontend/src/pages/AdminProductDetail.jsx` / `AdminCountryDetail.jsx` —
