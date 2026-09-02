@@ -25,7 +25,7 @@ carry id columns -- it only ever references products/support items by name.
 """
 from io import BytesIO
 import openpyxl
-from . import models, service
+from . import models, service, project_types
 
 
 SALE_ESTIMATION_HEADERS = [
@@ -97,6 +97,24 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
     ws.title = "Sheet1"
     ws.append(SALE_ESTIMATION_HEADERS)
 
+    # estimation_type_id drives the Odoo record type; furniture projects
+    # stamp a different one (see project_types.py). labor_cost is emitted
+    # only for wetworks -- for furniture the column stays in the header row
+    # but every value is blank (Odoo matches by header, so blank is safe and
+    # keeps one code path).
+    labor_applies = project_types.labor_applies(project.project_type)
+    first_row_meta = {
+        "estimation_type_id": project_types.odoo_estimation_type(project.project_type),
+        "project_estimation_id": project.name,
+        "costing_type": "Product and Service",
+        "source_pricelist_id": "Default AED pricelist",
+        "destination_pricelist_id": "Default AED pricelist",
+        "description": project.name,
+        "estimation_date": project.start_date or "",
+        "delivery_date": project.end_date or "",
+        "responsible": project.estimator_name or "",
+    }
+
     first_row_written = False
     for line in project.estimate_lines:
         totals = service.line_totals(project, line)
@@ -118,22 +136,14 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
             # this export (columns L-Q), so populating it here would
             # conflict with that calculation.
             "estimation_line_ids/wastage_percentage": round(avg_wastage * 100, 2),
-            "estimation_line_ids/labor_cost": round(line.labor_cost_per_unit, 2),
+            "estimation_line_ids/labor_cost": round(line.labor_cost_per_unit, 2) if labor_applies else "",
             "estimation_line_ids/margin_percentage": round(totals["margin_pct"] / 100, 4),
         }
         components = line.components or []
         if not components:
             row = {h: "" for h in SALE_ESTIMATION_HEADERS}
             if not first_row_written:
-                row.update({
-                    "estimation_type_id": "Wetworks", "project_estimation_id": project.name,
-                    "costing_type": "Product and Service",
-                    "source_pricelist_id": "Default AED pricelist",
-                    "destination_pricelist_id": "Default AED pricelist",
-                    "description": project.name,
-                    "estimation_date": project.start_date, "delivery_date": project.end_date,
-                    "responsible": project.estimator_name or "",
-                })
+                row.update(first_row_meta)
                 first_row_written = True
             row.update(line_header)
             ws.append([row[h] for h in SALE_ESTIMATION_HEADERS])
@@ -142,15 +152,7 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
         for i, comp in enumerate(components):
             row = {h: "" for h in SALE_ESTIMATION_HEADERS}
             if not first_row_written:
-                row.update({
-                    "estimation_type_id": "Wetworks", "project_estimation_id": project.name,
-                    "costing_type": "Product and Service",
-                    "source_pricelist_id": "Default AED pricelist",
-                    "destination_pricelist_id": "Default AED pricelist",
-                    "description": project.name,
-                    "estimation_date": project.start_date, "delivery_date": project.end_date,
-                    "responsible": project.estimator_name or "",
-                })
+                row.update(first_row_meta)
                 first_row_written = True
             if i == 0:
                 row.update(line_header)

@@ -12,11 +12,12 @@ _TEST_DB = os.path.join(os.path.dirname(__file__), f"test_auth_{uuid.uuid4().hex
 os.environ["DATABASE_URL"] = f"sqlite:///{_TEST_DB}"
 
 import pytest
+import openpyxl
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.database import SessionLocal, engine
-from app import models, service
+from app import models, service, export_excel
 from app.auth import hash_password
 
 
@@ -273,5 +274,60 @@ def test_wetworks_line_still_has_labor():
         assert line.material_cost_per_unit == 20.0
         # 2600/26/1 = $100/day crew; /10 coverage = $10; +15% Testland OH = $11.50
         assert abs(line.labor_cost_per_unit - 11.5) < 1e-6
+    finally:
+        db.close()
+
+
+# ---- exports: estimation_type_id + labor column per type (phase 03) ----
+
+def _sheet_rows(buf):
+    ws = openpyxl.load_workbook(buf).active
+    rows = list(ws.iter_rows(values_only=True))
+    return rows[0], rows[1:]
+
+
+def _built_line(db, project_type, *, with_coverage):
+    line = _make_line(db, project_type, with_coverage=with_coverage)
+    service.recompute_estimate_line(db, line)
+    db.commit()
+    return line
+
+
+def test_sale_estimation_furniture_type_and_blank_labor():
+    db = SessionLocal()
+    try:
+        line = _built_line(db, "loose_furniture", with_coverage=True)
+        header, data = _sheet_rows(export_excel.build_sale_estimation_workbook(db, line.project))
+        assert data[0][header.index("estimation_type_id")] == "Loose Furniture"
+        labor_col = header.index("estimation_line_ids/labor_cost")
+        assert all(r[labor_col] in (None, "") for r in data)
+    finally:
+        db.close()
+
+
+def test_sale_estimation_wetworks_type_and_labor_present():
+    db = SessionLocal()
+    try:
+        line = _built_line(db, "wetworks", with_coverage=True)
+        header, data = _sheet_rows(export_excel.build_sale_estimation_workbook(db, line.project))
+        assert data[0][header.index("estimation_type_id")] == "Wetworks"
+        labor_col = header.index("estimation_line_ids/labor_cost")
+        labor_vals = [r[labor_col] for r in data if r[labor_col] not in (None, "")]
+        assert labor_vals and abs(labor_vals[0] - 11.5) < 1e-6
+    finally:
+        db.close()
+
+
+def test_bom_and_product_import_build_for_furniture():
+    db = SessionLocal()
+    try:
+        line = _built_line(db, "fixed_furniture", with_coverage=False)
+        bom_header, bom_data = _sheet_rows(export_excel.build_bom_workbook(db, line.project))
+        assert any(r[bom_header.index("product")] == line.product.name for r in bom_data)
+        # furniture product has a BOM -> a component row follows it
+        assert any(r[bom_header.index("bom_line_ids/product_id")] for r in bom_data)
+        # no selling/purchasing company on this minimal project -> no product
+        # import rows, but the builder must not raise
+        assert export_excel.build_product_import_workbooks(db, line.project) == []
     finally:
         db.close()
