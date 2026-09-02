@@ -71,6 +71,7 @@ def run():
         for row in data["products"]:
             p = models.Product(
                 name=row["name"], uom=row["uom"], category=row["category"],
+                product_type=row.get("product_type", "wetworks"),
                 default_code=row.get("default_code"), odoo_id=row.get("odoo_id"),
                 active=bool(row.get("active", True)), needs_setup=bool(row.get("needs_setup", True)),
                 notes=row.get("notes"),

@@ -54,8 +54,9 @@ def run(output_path: str):
             ],
             "products": [
                 _row(p, [
-                    "id", "name", "uom", "category", "default_code", "odoo_id", "active", "needs_setup",
-                    "notes", "purchasing_company_id", "default_vendor_id", "consumable_pct", "ohp_pct",
+                    "id", "name", "uom", "category", "product_type", "default_code", "odoo_id",
+                    "active", "needs_setup", "notes", "purchasing_company_id", "default_vendor_id",
+                    "consumable_pct", "ohp_pct",
                 ])
                 for p in db.query(models.Product).order_by(models.Product.id)
             ],

@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session, joinedload
 
-from . import models, schemas, service, auth, calc
+from . import models, schemas, service, auth, calc, project_types
 from .database import Base, engine, get_db
 from .export_excel import (
     build_sale_estimation_workbook, build_bom_workbook, build_product_import_workbooks,
@@ -74,13 +74,16 @@ def reset_user_password(user_id: int, payload: schemas.PasswordResetIn, db: Sess
 
 # ---------------------------------------------------------------- products
 @app.get("/api/products", response_model=List[schemas.ProductOut])
-def list_products(category: Optional[str] = None, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def list_products(category: Optional[str] = None, product_type: Optional[str] = None,
+                  db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     q = db.query(models.Product).options(
         joinedload(models.Product.purchasing_company),
         joinedload(models.Product.default_vendor),
     ).filter(models.Product.active == True)
     if category:
         q = q.filter(models.Product.category == category)
+    if product_type:
+        q = q.filter(models.Product.product_type == product_type)
     return q.order_by(models.Product.category, models.Product.name).all()
 
 
@@ -99,6 +102,8 @@ def get_product(product_id: int, db: Session = Depends(get_db), user: models.Use
 
 @app.post("/api/products", response_model=schemas.ProductOut)
 def create_product(payload: schemas.ProductIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    if not project_types.is_valid(payload.product_type):
+        raise HTTPException(422, f"unknown product_type {payload.product_type!r}")
     p = models.Product(**payload.model_dump(), needs_setup=True)
     db.add(p)
     db.commit()
@@ -111,8 +116,11 @@ def update_product(product_id: int, payload: schemas.ProductIn, db: Session = De
     p = db.query(models.Product).get(product_id)
     if not p:
         raise HTTPException(404, "product not found")
+    if not project_types.is_valid(payload.product_type):
+        raise HTTPException(422, f"unknown product_type {payload.product_type!r}")
     for k, v in payload.model_dump().items():
         setattr(p, k, v)
+    _refresh_needs_setup(db, p)
     db.commit()
     db.refresh(p)
     return p
@@ -196,6 +204,10 @@ def delete_bom_line(bom_line_id: int, db: Session = Depends(get_db), user: model
 def _refresh_needs_setup(db: Session, product: models.Product):
     db.flush()
     has_bom = db.query(models.BomLine).filter(models.BomLine.product_id == product.id).count() > 0
+    if not project_types.labor_applies(product.product_type):
+        # Furniture products carry no coverage rate -- a BOM is all they need.
+        product.needs_setup = not has_bom
+        return
     has_coverage = db.query(models.CoverageRate).filter(models.CoverageRate.product_id == product.id).count() > 0
     product.needs_setup = not (has_bom and has_coverage)
 
@@ -405,6 +417,14 @@ def upsert_material_price(country_id: int, payload: schemas.CountryMaterialPrice
     return row
 
 
+# ---------------------------------------------------------------- project types
+@app.get("/api/project-types")
+def list_project_types(user: models.User = Depends(auth.get_current_user)):
+    """The three estimation modes and their rules -- the frontend builds its
+    project-type picker and per-type column visibility from this."""
+    return project_types.as_api_list()
+
+
 # ---------------------------------------------------------------- projects
 def _owned_project_query(db: Session, user: models.User):
     q = db.query(models.Project)
@@ -441,8 +461,16 @@ def get_project(project_id: int, db: Session = Depends(get_db), user: models.Use
     ])
 
 
+def _validate_project_payload(payload: schemas.ProjectIn):
+    if not project_types.is_valid(payload.project_type):
+        raise HTTPException(422, f"unknown project_type {payload.project_type!r}")
+    if project_types.dates_required(payload.project_type) and not (payload.start_date and payload.end_date):
+        raise HTTPException(422, "start_date and end_date are required for this project type")
+
+
 @app.post("/api/projects", response_model=schemas.ProjectOut)
 def create_project(payload: schemas.ProjectIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    _validate_project_payload(payload)
     p = models.Project(**payload.model_dump(), owner_id=user.id)
     db.add(p)
     db.commit()
@@ -453,6 +481,7 @@ def create_project(payload: schemas.ProjectIn, db: Session = Depends(get_db), us
 @app.put("/api/projects/{project_id}", response_model=schemas.ProjectOut)
 def update_project(project_id: int, payload: schemas.ProjectIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     p = _get_owned_project(db, project_id, user)
+    _validate_project_payload(payload)
     for k, v in payload.model_dump().items():
         setattr(p, k, v)
     db.commit()
@@ -586,10 +615,15 @@ def project_product_costs(project_id: int, db: Session = Depends(get_db), user: 
     in JS. Reuses calc.py exactly as recompute_estimate_line does."""
     project = _get_owned_project(db, project_id, user)
     price_lookup = calc.price_lookup_factory(db, project.country_id)
+    # Only products of the project's own type can be added to it, so the
+    # cost map is scoped to those.
     products = db.query(models.Product).options(
         joinedload(models.Product.bom_lines),
         joinedload(models.Product.coverage_rate),
-    ).filter(models.Product.active == True).all()
+    ).filter(
+        models.Product.active == True,
+        models.Product.product_type == project.project_type,
+    ).all()
     result = {}
     for p in products:
         material = calc.compute_material_cost(p.bom_lines, price_lookup, p.consumable_pct, p.ohp_pct)
@@ -598,6 +632,7 @@ def project_product_costs(project_id: int, db: Session = Depends(get_db), user: 
             material_cost_per_unit=material.cost_per_unit,
             labor_cost_per_unit=labor.cost_per_unit,
             needs_setup=p.needs_setup,
+            product_type=p.product_type,
         )
     return result
 

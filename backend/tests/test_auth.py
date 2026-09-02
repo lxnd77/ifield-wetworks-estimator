@@ -149,3 +149,58 @@ def test_non_admin_cannot_reset_password(client):
     admin_id = client.get("/api/auth/me", headers=_auth(alice_token)).json()["id"]
     r = client.put(f"/api/users/{admin_id}/password", headers=_auth(alice_token), json={"new_password": "x"})
     assert r.status_code == 403
+
+
+# ---- project types (furniture extension, phase 01) ----
+
+def test_project_types_endpoint(client):
+    token = _login(client, "alice", "alicepass")
+    r = client.get("/api/project-types", headers=_auth(token))
+    assert r.status_code == 200, r.text
+    by_value = {t["value"]: t for t in r.json()}
+    assert set(by_value) == {"wetworks", "loose_furniture", "fixed_furniture"}
+    assert by_value["wetworks"]["labor_applies"] is True
+    assert by_value["loose_furniture"]["labor_applies"] is False
+    assert by_value["fixed_furniture"]["dates_required"] is False
+
+
+def _country_id(client, token):
+    return client.get("/api/countries", headers=_auth(token)).json()[0]["id"]
+
+
+def test_furniture_project_allows_missing_dates(client):
+    token = _login(client, "alice", "alicepass")
+    r = client.post("/api/projects", headers=_auth(token), json={
+        "name": "LF Project", "country_id": _country_id(client, token),
+        "project_type": "loose_furniture",
+    })
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["project_type"] == "loose_furniture"
+    assert body["start_date"] is None and body["end_date"] is None
+
+
+def test_wetworks_project_requires_dates(client):
+    token = _login(client, "alice", "alicepass")
+    r = client.post("/api/projects", headers=_auth(token), json={
+        "name": "WW no dates", "country_id": _country_id(client, token),
+    })
+    assert r.status_code == 422
+
+
+def test_unknown_project_type_rejected(client):
+    token = _login(client, "alice", "alicepass")
+    r = client.post("/api/projects", headers=_auth(token), json={
+        "name": "bogus", "country_id": _country_id(client, token),
+        "project_type": "nope", "start_date": "2026-01-01", "end_date": "2026-02-01",
+    })
+    assert r.status_code == 422
+
+
+def test_products_filtered_by_type(client):
+    token = _login(client, "alice", "alicepass")
+    # test DB has no products at all, but the filter must still be honored
+    # (and not error) -- an unknown type simply yields an empty list.
+    r = client.get("/api/products?product_type=loose_furniture", headers=_auth(token))
+    assert r.status_code == 200
+    assert r.json() == []

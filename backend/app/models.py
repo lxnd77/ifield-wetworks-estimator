@@ -83,6 +83,11 @@ class Product(Base):
     name = Column(String, nullable=False)
     uom = Column(String, nullable=False)
     category = Column(String, nullable=False)  # Tile / False Ceiling / Paint / Stone / Counters / Flooring
+    # Which estimation mode this product belongs to -- see app/project_types.py.
+    # "wetworks" (material + labor) / "loose_furniture" / "fixed_furniture"
+    # (material only, no coverage rate). A line item can only be added to a
+    # project of the matching type.
+    product_type = Column(String, nullable=False, server_default="wetworks")
     default_code = Column(String, nullable=True)
     # Odoo's own product.template external id, once known -- see
     # SupportItem.odoo_id for what this is and why it's separate from
@@ -221,6 +226,11 @@ class Project(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
+    # Estimation mode -- see app/project_types.py. "wetworks" (material +
+    # labor, dates required) / "loose_furniture" / "fixed_furniture"
+    # (material only, dates optional). Drives which products can be added,
+    # whether labor is costed, and the Odoo estimation_type_id on export.
+    project_type = Column(String, nullable=False, server_default="wetworks")
     # Short code (e.g. "FLH") used as the project half of the Odoo product
     # reference code: f"{code} {item_code}" e.g. "FLH PT-01".
     code = Column(String, nullable=True)
@@ -230,8 +240,11 @@ class Project(Base):
     client_name = Column(String, nullable=True)
     address = Column(String, nullable=True)
     estimator_name = Column(String, nullable=True)
-    start_date = Column(Date, nullable=False)
-    end_date = Column(Date, nullable=False)
+    # Required for wetworks projects (they drive labor mobilization
+    # amortization); optional for furniture, where nothing reads them for
+    # costing. Enforced per project_type at the API layer, not the schema.
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
     default_margin_pct = Column(Float, nullable=False, default=0.0)
     display_currency = Column(String, nullable=False, default="USD")
     notes = Column(Text, nullable=True)
@@ -245,6 +258,10 @@ class Project(Base):
 
     @property
     def duration_months(self):
+        # Furniture projects may have no dates; nothing reads this for their
+        # costing, so a neutral 1.0 keeps compute_labor_cost's math finite.
+        if not self.start_date or not self.end_date:
+            return 1.0
         days = (self.end_date - self.start_date).days
         return max(days, 1) / 30.4368
 

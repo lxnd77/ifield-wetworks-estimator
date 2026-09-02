@@ -112,6 +112,7 @@ class ProductOut(BaseModel):
     name: str
     uom: str
     category: str
+    product_type: str = "wetworks"
     default_code: Optional[str] = None
     odoo_id: Optional[str] = None
     active: bool
@@ -134,12 +135,14 @@ class ProductCostOut(BaseModel):
     material_cost_per_unit: float
     labor_cost_per_unit: float
     needs_setup: bool
+    product_type: str = "wetworks"
 
 
 class ProductIn(BaseModel):
     name: str
     uom: str
     category: str
+    product_type: str = "wetworks"
     default_code: Optional[str] = None
     odoo_id: Optional[str] = None
     notes: Optional[str] = None
@@ -262,8 +265,9 @@ class ProjectOut(BaseModel):
     client_name: Optional[str] = None
     address: Optional[str] = None
     estimator_name: Optional[str] = None
-    start_date: date
-    end_date: date
+    project_type: str = "wetworks"
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
     default_margin_pct: float
     display_currency: str
     notes: Optional[str] = None
@@ -275,12 +279,13 @@ class ProjectIn(BaseModel):
     name: str
     code: Optional[str] = None
     country_id: int
+    project_type: str = "wetworks"
     selling_company_id: Optional[int] = None
     client_name: Optional[str] = None
     address: Optional[str] = None
     estimator_name: Optional[str] = None
-    start_date: date
-    end_date: date
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
     default_margin_pct: float = 0.0
     display_currency: str = "USD"
     notes: Optional[str] = None
