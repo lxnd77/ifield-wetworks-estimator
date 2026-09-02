@@ -45,6 +45,12 @@ def compute_material_cost(bom_lines, price_lookup, consumable_pct: float = 0.0, 
     consumable_pct/ohp_pct: the product's CMBL%/overhead%, applied only to
     its primary material line(s) -- matches the source Estimate Form, where
     this markup was product-level, not per BOM line.
+
+    This is the only cost driver furniture projects use (they have no labor
+    half). If the furniture side later needs freight / transport / assembly
+    as a cost component, add it here (or as a sibling function called
+    alongside this one from service.recompute_estimate_line), not in the
+    labor path.
     """
     markup = (consumable_pct or 0) + (ohp_pct or 0)
     components = []

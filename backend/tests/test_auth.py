@@ -2,6 +2,7 @@
 import os
 import sys
 import uuid
+from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -15,7 +16,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.database import SessionLocal, engine
-from app import models
+from app import models, service
 from app.auth import hash_password
 
 
@@ -204,3 +205,73 @@ def test_products_filtered_by_type(client):
     r = client.get("/api/products?product_type=loose_furniture", headers=_auth(token))
     assert r.status_code == 200
     assert r.json() == []
+
+
+# ---- furniture costing: material only, no labor (phase 02) ----
+
+def _make_line(db, project_type, *, with_coverage):
+    """Insert a self-contained catalog + a one-line estimate and return the
+    (db, line). BOM: 2 units of a support item priced at $10 -> $20/unit
+    material. Testland's fx rates all default to 1.0."""
+    country = db.query(models.Country).filter_by(code="TST").one()
+    suffix = f"{project_type}-{with_coverage}"
+    product = models.Product(
+        name=f"P {suffix}", uom="Pcs", category="Test", product_type=project_type,
+        needs_setup=False, consumable_pct=0.0, ohp_pct=0.0,
+    )
+    db.add(product)
+    db.flush()
+    si = models.SupportItem(name=f"SI {suffix}", uom="Pcs")
+    db.add(si)
+    db.flush()
+    db.add(models.BomLine(product_id=product.id, support_item_id=si.id,
+                          qty_per_unit=2.0, wastage_pct=0.0, role="primary", sort_order=0))
+    db.add(models.CountryMaterialPrice(country_id=country.id, support_item_id=si.id,
+                                       unit_price_local=10.0))
+    if with_coverage:
+        db.add(models.CoverageRate(
+            product_id=product.id, primary_coverage_per_day=10.0, secondary_coverage_per_day=0.0,
+            inhouse_count=1, local_count=0, inhouse_salary_month_local=2600.0,
+            local_salary_month_local=0.0))
+    project = models.Project(
+        name=f"Proj {suffix}", country_id=country.id, project_type=project_type,
+        start_date=date(2026, 1, 1), end_date=date(2026, 7, 1), default_margin_pct=0.0)
+    db.add(project)
+    db.flush()
+    loc = models.ProjectLocation(project_id=project.id, name="L")
+    db.add(loc)
+    db.flush()
+    line = models.EstimateLine(project_id=project.id, location_id=loc.id,
+                               product_id=product.id, qty=3.0)
+    db.add(line)
+    db.flush()
+    return line
+
+
+def test_furniture_line_prices_material_only():
+    db = SessionLocal()
+    try:
+        # A furniture product even *with* a stray coverage rate must not
+        # pick up any labor cost.
+        line = _make_line(db, "loose_furniture", with_coverage=True)
+        service.recompute_estimate_line(db, line)
+        db.commit()
+        assert line.material_cost_per_unit == 20.0
+        assert line.labor_cost_per_unit == 0.0
+        assert line.wages_cost_per_unit == 0.0
+        assert line.labor_expenses_per_unit == 0.0
+    finally:
+        db.close()
+
+
+def test_wetworks_line_still_has_labor():
+    db = SessionLocal()
+    try:
+        line = _make_line(db, "wetworks", with_coverage=True)
+        service.recompute_estimate_line(db, line)
+        db.commit()
+        assert line.material_cost_per_unit == 20.0
+        # 2600/26/1 = $100/day crew; /10 coverage = $10; +15% Testland OH = $11.50
+        assert abs(line.labor_cost_per_unit - 11.5) < 1e-6
+    finally:
+        db.close()

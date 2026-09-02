@@ -1,8 +1,8 @@
 """Shared business logic used by both the API and the Excel export."""
 import math
 from sqlalchemy.orm import Session
-from . import models
-from .calc import compute_material_cost, compute_labor_cost, price_lookup_factory
+from . import models, project_types
+from .calc import compute_material_cost, compute_labor_cost, price_lookup_factory, LaborResult
 
 
 def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.EstimateLine:
@@ -12,7 +12,15 @@ def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.Es
 
     price_lookup = price_lookup_factory(db, country.id)
     material = compute_material_cost(product.bom_lines, price_lookup, product.consumable_pct, product.ohp_pct)
-    labor = compute_labor_cost(product.coverage_rate, country, project.duration_months)
+    # Furniture projects price on material alone -- no coverage rate, no
+    # labor. (compute_labor_cost also returns zero without a coverage rate,
+    # but the explicit guard means furniture costing never depends on that
+    # side effect, and a stray coverage rate on a furniture product can't
+    # leak labor into the line.)
+    if project_types.labor_applies(project.project_type):
+        labor = compute_labor_cost(product.coverage_rate, country, project.duration_months)
+    else:
+        labor = LaborResult(cost_per_unit=0.0, wages_per_unit=0.0, expenses_per_unit=0.0)
 
     line.material_cost_per_unit = material.cost_per_unit
     line.labor_cost_per_unit = labor.cost_per_unit

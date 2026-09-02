@@ -624,13 +624,17 @@ def project_product_costs(project_id: int, db: Session = Depends(get_db), user: 
         models.Product.active == True,
         models.Product.product_type == project.project_type,
     ).all()
+    labor_applies = project_types.labor_applies(project.project_type)
     result = {}
     for p in products:
         material = calc.compute_material_cost(p.bom_lines, price_lookup, p.consumable_pct, p.ohp_pct)
-        labor = calc.compute_labor_cost(p.coverage_rate, project.country, project.duration_months)
+        labor_cost = 0.0
+        if labor_applies:
+            labor_cost = calc.compute_labor_cost(
+                p.coverage_rate, project.country, project.duration_months).cost_per_unit
         result[p.id] = schemas.ProductCostOut(
             material_cost_per_unit=material.cost_per_unit,
-            labor_cost_per_unit=labor.cost_per_unit,
+            labor_cost_per_unit=labor_cost,
             needs_setup=p.needs_setup,
             product_type=p.product_type,
         )
