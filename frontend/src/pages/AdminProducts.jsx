@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
+import { PROJECT_TYPES, typeLabel } from "../projectTypes";
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
+  const [productType, setProductType] = useState("");
 
   useEffect(() => {
     api.get("/products").then((r) => setProducts(r.data));
@@ -15,7 +17,8 @@ export default function AdminProducts() {
   const filtered = products.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) &&
-      (!category || p.category === category)
+      (!category || p.category === category) &&
+      (!productType || p.product_type === productType)
   );
 
   return (
@@ -34,6 +37,12 @@ export default function AdminProducts() {
           placeholder="Search products..."
           className="border rounded-md px-3 py-2 text-sm flex-1 max-w-sm bg-white"
         />
+        <select value={productType} onChange={(e) => setProductType(e.target.value)} className="border rounded-md px-3 py-2 text-sm bg-white">
+          <option value="">All types</option>
+          {PROJECT_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
+        </select>
         <select value={category} onChange={(e) => setCategory(e.target.value)} className="border rounded-md px-3 py-2 text-sm bg-white">
           <option value="">All categories</option>
           {categories.map((c) => (
@@ -47,6 +56,7 @@ export default function AdminProducts() {
           <thead>
             <tr className="text-left text-xs text-slate-400 border-b bg-slate-50">
               <th className="px-4 py-2 font-normal">Product</th>
+              <th className="px-4 py-2 font-normal">Type</th>
               <th className="px-4 py-2 font-normal">Category</th>
               <th className="px-4 py-2 font-normal">UoM</th>
               <th className="px-4 py-2 font-normal">Status</th>
@@ -60,6 +70,7 @@ export default function AdminProducts() {
                     {p.name}
                   </Link>
                 </td>
+                <td className="px-4 py-2 text-slate-500">{typeLabel(p.product_type)}</td>
                 <td className="px-4 py-2 text-slate-500">{p.category}</td>
                 <td className="px-4 py-2 text-slate-500">{p.uom}</td>
                 <td className="px-4 py-2">

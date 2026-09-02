@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback, Fragment } from "react";
 import { useParams, Link } from "react-router-dom";
 import api, { money, num } from "../api";
+import { laborApplies, typeLabel } from "../projectTypes";
 
 let tempIdCounter = 0;
 const newTempId = () => `new-${++tempIdCounter}-${Date.now()}`;
@@ -102,6 +103,13 @@ export default function ProjectDetail() {
     for (const l of draftLines) (map[l.location_id] ||= []).push(l);
     return map;
   }, [draftLines]);
+
+  // A line item can only be a product of the project's own type.
+  const visibleProducts = useMemo(
+    () => (project ? products.filter((p) => p.product_type === project.project_type) : products),
+    [products, project]
+  );
+  const showLabor = project ? laborApplies(project.project_type) : true;
 
   const summary = useMemo(() => {
     if (!project) return null;
@@ -231,7 +239,11 @@ export default function ProjectDetail() {
               {project.code && <span className="text-ink/40 font-normal"> ({project.code})</span>}
             </h1>
             <div className="text-xs text-ink/60 mt-1">
-              {project.country.name} &middot; {project.start_date} &rarr; {project.end_date} &middot; margin {project.default_margin_pct}%
+              <span className="text-[10px] uppercase tracking-wide text-ink/70 bg-ink/5 px-1.5 py-0.5 rounded mr-1">
+                {typeLabel(project.project_type)}
+              </span>
+              {project.country.name}
+              {project.start_date && <> &middot; {project.start_date} &rarr; {project.end_date}</>} &middot; margin {project.default_margin_pct}%
               {project.selling_company && <> &middot; sold via {project.selling_company.name}</>}
               {project.country.is_template && (
                 <span className="ml-2 text-amber-600 font-medium">country data not yet configured</span>
@@ -264,9 +276,9 @@ export default function ProjectDetail() {
       </div>
 
       {summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className={`grid grid-cols-2 gap-3 ${showLabor ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
           <SummaryStat label="Material cost" value={money(summary.material_total)} />
-          <SummaryStat label="Labor cost" value={money(summary.labor_total)} />
+          {showLabor && <SummaryStat label="Labor cost" value={money(summary.labor_total)} />}
           <SummaryStat label="Total cost" value={money(summary.cost_total)} highlight />
           <SummaryStat label="Sales value" value={money(summary.sales_total)} highlight />
           <SummaryStat label="Needs setup" value={summary.needs_setup_count} warn={summary.needs_setup_count > 0} />
@@ -279,7 +291,8 @@ export default function ProjectDetail() {
             key={loc.id}
             location={loc}
             lines={linesByLocation[loc.id] || []}
-            products={products}
+            products={visibleProducts}
+            showLabor={showLabor}
             costMap={costMap}
             project={project}
             componentsByLineId={componentsByLineId}
@@ -384,12 +397,13 @@ function SummaryStat({ label, value, highlight, warn }) {
   );
 }
 
-function LocationBlock({ location, lines, products, costMap, project, componentsByLineId, onRemoveLocation, onAddLine, onUpdateLine, onRemoveLine, onSaveComponentCode }) {
+function LocationBlock({ location, lines, products, showLabor, costMap, project, componentsByLineId, onRemoveLocation, onAddLine, onUpdateLine, onRemoveLine, onSaveComponentCode }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const total = lines.reduce((s, l) => s + lineCosts(l, costMap, project).costTotal, 0);
   const productById = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
+  const editColSpan = showLabor ? 8 : 7;
 
   return (
     <div className="bg-white border rounded-lg overflow-hidden">
@@ -416,7 +430,7 @@ function LocationBlock({ location, lines, products, costMap, project, components
               <th className="px-2 py-2 font-normal">Item code</th>
               <th className="px-2 py-2 font-normal text-right">Qty</th>
               <th className="px-2 py-2 font-normal text-right">Material/unit</th>
-              <th className="px-2 py-2 font-normal text-right">Labor/unit</th>
+              {showLabor && <th className="px-2 py-2 font-normal text-right">Labor/unit</th>}
               <th className="px-2 py-2 font-normal text-right">Margin</th>
               <th className="px-2 py-2 font-normal text-right">Line total</th>
               <th className="px-4 py-2"></th>
@@ -430,9 +444,10 @@ function LocationBlock({ location, lines, products, costMap, project, components
               const isTempLine = typeof l.id === "string";
               return editingId === l.id ? (
                 <tr key={l.id} className="border-b last:border-0">
-                  <td colSpan={8}>
+                  <td colSpan={editColSpan}>
                     <LineItemForm
                       products={products}
+                      showLabor={showLabor}
                       initial={l}
                       onCancel={() => setEditingId(null)}
                       onSubmit={(vals) => {
@@ -456,7 +471,7 @@ function LocationBlock({ location, lines, products, costMap, project, components
                     <td className="px-2 py-2 text-ink/60">{l.item_code || <span className="text-ink/30">--</span>}</td>
                     <td className="px-2 py-2 text-right">{num(l.qty, 1)} {product?.uom}</td>
                     <td className="px-2 py-2 text-right">{money(c.materialPerUnit)}</td>
-                    <td className="px-2 py-2 text-right">{money(c.laborPerUnit)}</td>
+                    {showLabor && <td className="px-2 py-2 text-right">{money(c.laborPerUnit)}</td>}
                     <td className="px-2 py-2 text-right">{l.margin_pct_override != null ? `${l.margin_pct_override}%` : "default"}</td>
                     <td className="px-2 py-2 text-right font-medium">{money(c.costTotal)}</td>
                     <td className="px-4 py-2 text-right whitespace-nowrap">
@@ -478,7 +493,7 @@ function LocationBlock({ location, lines, products, costMap, project, components
                   </tr>
                   {expandedId === l.id && (
                     <tr className="border-b last:border-0 bg-slate-50">
-                      <td colSpan={8} className="px-4 py-3">
+                      <td colSpan={editColSpan} className="px-4 py-3">
                         <BomCodeEditor components={components} onSave={(compId, code) => onSaveComponentCode(l.id, compId, code)} />
                       </td>
                     </tr>
@@ -494,6 +509,7 @@ function LocationBlock({ location, lines, products, costMap, project, components
         <div className="p-4 border-t bg-slate-50">
           <LineItemForm
             products={products}
+            showLabor={showLabor}
             onCancel={() => setAdding(false)}
             onSubmit={(vals) => {
               onAddLine(vals);
@@ -550,7 +566,7 @@ function BomCodeRow({ component, onSave }) {
   );
 }
 
-function LineItemForm({ products, initial, onCancel, onSubmit }) {
+function LineItemForm({ products, showLabor = true, initial, onCancel, onSubmit }) {
   const [productId, setProductId] = useState(initial?.product_id ?? "");
   const [qty, setQty] = useState(initial?.qty ?? "");
   const [margin, setMargin] = useState(initial?.margin_pct_override ?? "");
@@ -634,7 +650,8 @@ function LineItemForm({ products, initial, onCancel, onSubmit }) {
       </button>
       {selected?.needs_setup && (
         <div className="text-xs text-amber-600 w-full">
-          This product has no coverage/BOM data yet for the project's country -- cost will show as $0 until an admin configures it.
+          This product has no {showLabor ? "coverage/BOM" : "BOM"} data yet -- cost will show as $0 until an admin configures it
+          {" "}(and a material price is set for the project's country).
         </div>
       )}
     </form>
