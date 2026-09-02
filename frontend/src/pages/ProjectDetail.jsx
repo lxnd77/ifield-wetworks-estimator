@@ -637,7 +637,7 @@ function FurnitureBomEditor({ line, product, components, supportItems, onAdd, on
               onDelete={() => onDelete(c.id)} />
           ))}
           <tr className="border-b last:border-0 text-ink/60">
-            <td className="py-1.5">Factory Work for {product?.name}</td>
+            <td className="py-1.5">Factory Work for {product?.name}{line.item_code ? ` ${line.item_code}` : ""}</td>
             <td className="py-1.5">Factory Work</td>
             <td className="py-1.5 text-right">1</td>
             <td className="py-1.5">--</td>

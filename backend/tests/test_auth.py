@@ -355,7 +355,7 @@ def test_sale_estimation_furniture_type_blank_labor_and_factory_work_row():
         comp_col = header.index(
             "estimation_line_ids/sale_estimation_component_product_line_ids/product_id")
         names = [r[comp_col] for r in data if r[comp_col]]
-        assert f"Factory Work for {line.product.name}" in names
+        assert f"Factory Work for {line.product.name} {line.item_code}" in names
     finally:
         db.close()
 
@@ -379,11 +379,12 @@ def test_bom_export_furniture_has_components_and_factory_work():
         line = _built_line(db, "fixed_furniture")
         bom_header, bom_data = _sheet_rows(export_excel.build_bom_workbook(db, line.project))
         assert bom_data[0][bom_header.index("product")] == line.product.name
+        fw_name = f"Factory Work for {line.product.name} {line.item_code}"
         comp_names = [r[bom_header.index("bom_line_ids/product_id")] for r in bom_data]
         assert line.components[0].support_item.name in comp_names
-        assert f"Factory Work for {line.product.name}" in comp_names
+        assert fw_name in comp_names
         fw_qty = [r[bom_header.index("bom_line_ids/product_qty")] for r in bom_data
-                  if r[bom_header.index("bom_line_ids/product_id")] == f"Factory Work for {line.product.name}"]
+                  if r[bom_header.index("bom_line_ids/product_id")] == fw_name]
         assert fw_qty == [1]
     finally:
         db.close()
@@ -405,8 +406,36 @@ def test_product_import_furniture_manufacture_and_factory_work_buy_row():
         _, sc_rows = _sheet_rows(books["SC ftest"])
         by_name = {r[1]: r for r in sc_rows}
         assert by_name[line.product.name][4].startswith("Manufacture")     # route_ids
-        fw = by_name[f"Factory Work for {line.product.name}"]
+        fw = by_name[f"Factory Work for {line.product.name} {line.item_code}"]
         assert fw[4].startswith("Buy") and fw[7] == "Storable Product" and fw[8] in (None, "")
+    finally:
+        db.close()
+
+
+def test_factory_work_name_carries_item_code_for_repeated_products():
+    db = SessionLocal()
+    try:
+        # one product ("Sofa"), two line items with different item codes
+        line = _make_line(db, "loose_furniture", factory_work=10.0, item_code="SOFA-A")
+        service.recompute_estimate_line(db, line)
+        db.flush()
+        loc = line.location
+        si = line.components[0].support_item
+        l2 = models.EstimateLine(project_id=line.project_id, location_id=loc.id,
+                                 product_id=line.product_id, qty=1.0,
+                                 item_code="SOFA-B", factory_work_cost=10.0)
+        db.add(l2)
+        db.flush()
+        db.add(models.EstimateLineComponent(estimate_line_id=l2.id, support_item_id=si.id,
+                                            qty_per_unit=1.0, role="primary",
+                                            qty=0.0, unit_cost=0.0, total_cost=0.0))
+        db.flush()
+        service.recompute_estimate_line(db, l2)
+        db.commit()
+        _, bom = _sheet_rows(export_excel.build_bom_workbook(db, line.project))
+        names = {r[4] for r in bom if r[4]}
+        assert f"Factory Work for {line.product.name} SOFA-A" in names
+        assert f"Factory Work for {line.product.name} SOFA-B" in names
     finally:
         db.close()
 

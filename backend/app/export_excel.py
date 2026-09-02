@@ -82,10 +82,13 @@ def line_virtual_product_name(line: models.EstimateLine) -> str:
     return line.product.name
 
 
-def factory_work_name(product: models.Product) -> str:
+def factory_work_name(product: models.Product, item_code=None) -> str:
     """Every furniture line that carries a BOM includes this as a qty-1
-    component -- the per-project assembly/labor charge."""
-    return f"Factory Work for {product.name}"
+    component -- the per-project assembly/labor charge. The line's item code
+    is folded into the name so several lines of the same product (e.g. two
+    different "Sofa" line items) get distinct Factory Work entries."""
+    code = (item_code or "").strip()
+    return f"Factory Work for {product.name} {code}".rstrip()
 
 
 # Sentinel standing in for the synthetic Factory Work row while iterating a
@@ -179,7 +182,7 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
             if comp is _FACTORY_WORK:
                 row.update({
                     "estimation_line_ids/sale_estimation_component_product_line_ids/product_id":
-                        factory_work_name(line.product),
+                        factory_work_name(line.product, line.item_code),
                     "estimation_line_ids/sale_estimation_component_product_line_ids/product_uom_qty": 1,
                 })
             else:
@@ -291,7 +294,7 @@ def build_product_import_workbooks(db, project: models.Project) -> list:
                 # Factory Work: a Buy line on both sheets, vendor = purchasing
                 # company, price left blank (it's project-specific and already
                 # on the sale-estimation component line).
-                fw_name = factory_work_name(product)
+                fw_name = factory_work_name(product, line.item_code)
                 fw_key = ("factory_work", product.id, line.item_code)
                 fw_code = reference_code(project, line.item_code)
                 add_row(purchasing_sheet, fw_key, fw_name, fw_code, purchasing_company_name, False)
@@ -344,7 +347,7 @@ def build_bom_workbook(db, project: models.Project) -> BytesIO:
             # plus the qty-1 Factory Work row. No wastage.
             bom = [(c.support_item.name, c.qty_per_unit or 0.0) for c in line.components]
             if line.components:
-                bom.append((factory_work_name(line.product), 1))
+                bom.append((factory_work_name(line.product, line.item_code), 1))
         else:
             bom = [(b.support_item.name, b.qty_per_unit * (1 + (b.wastage_pct or 0)))
                    for b in line.product.bom_lines]
