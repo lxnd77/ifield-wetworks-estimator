@@ -5429,7 +5429,7 @@
       "odoo_id": null,
       "uom": "Boards",
       "notes": null,
-      "purchase_category": null,
+      "purchase_category": "Accessories",
       "default_vendor_id": null
     },
     {
@@ -5439,7 +5439,7 @@
       "odoo_id": null,
       "uom": "Boards",
       "notes": null,
-      "purchase_category": null,
+      "purchase_category": "Accessories",
       "default_vendor_id": null
     },
     {

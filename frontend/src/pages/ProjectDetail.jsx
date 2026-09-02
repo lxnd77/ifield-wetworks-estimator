@@ -606,6 +606,9 @@ function LocationBlock({ location, lines, products, supportItems, showLabor, cos
 
 function FurnitureBomEditor({ line, product, components, supportItems, onAdd, onUpdate, onDelete }) {
   const [adding, setAdding] = useState(false);
+  // Only the four furniture BOM categories -- wetworks recipe components
+  // (Gypsum board, tile, ...) don't belong on a furniture line.
+  const pickable = supportItems.filter((s) => FURNITURE_BOM_CATEGORIES.includes(s.purchase_category));
 
   return (
     <div className="max-w-3xl">
@@ -655,7 +658,7 @@ function FurnitureBomEditor({ line, product, components, supportItems, onAdd, on
       </table>
       {adding && (
         <AddComponentForm
-          supportItems={supportItems}
+          supportItems={pickable}
           existing={components.map((c) => c.support_item_id)}
           onCancel={() => setAdding(false)}
           onSubmit={(payload) => { onAdd(payload); setAdding(false); }}

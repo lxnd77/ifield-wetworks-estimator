@@ -34,16 +34,19 @@ from app.database import SessionLocal
 from app import models, project_types
 
 
-# Support-item name -> purchase_category (one of project_types.FURNITURE_BOM_CATEGORIES,
-# or None to leave unclassified -- it still shows in the "All" component picker).
+# Support-item name -> purchase_category. Every furniture support item gets
+# one of project_types.FURNITURE_BOM_CATEGORIES (the component picker filters
+# on it, so an unclassified item would be invisible on a furniture line).
+# Plywood / boards go under "Accessories" as the least-bad of the four --
+# an admin can reclassify from the support-items screen.
 SUPPORT_CATEGORY = {
     # Support / Fabric
     "Fabric": "Fabric", "Leather": "Fabric", "PU": "Fabric", "PVC": "Fabric",
     "Partial Leather": "Fabric", "Flame retardant treatment": "Fabric",
     "Water repellent treatment": "Fabric", "Laminated Fabric with backing": "Fabric",
     # Support (bare)
-    "Stone": "Stone", "Accessories": "Accessories", "Media Hub": "Accessories", "LED": "Accessories",
-    "Plywood 12mm": None, "Plywood 9mm": None,
+    "Stone": "Stone", "Accessories": "Accessories", "Media Hub": "Accessories",
+    "LED": "Accessories", "Plywood 12mm": "Accessories", "Plywood 9mm": "Accessories",
     # Support / Doors & Windows -- metal ironmongery
     "Butt Hinge": "Metal", "Door Handle": "Metal", "Half Thumb Turn": "Metal",
     "Latch Lock": "Metal", "Lock": "Metal", "One Side Door Handle": "Metal",
@@ -54,6 +57,7 @@ SUPPORT_CATEGORY_BY_SUBFAMILY = {
     "Fabric": "Fabric",
     "Doors & Windows": "Metal",
 }
+_DEFAULT_SUPPORT_CATEGORY = "Accessories"
 
 FAMILY_TO_PRODUCT_TYPE = {
     "FFE": project_types.LOOSE_FURNITURE,
@@ -101,7 +105,7 @@ def _read_rows(path):
 def _support_category(name, subfamily):
     if name in SUPPORT_CATEGORY:
         return SUPPORT_CATEGORY[name]
-    return SUPPORT_CATEGORY_BY_SUBFAMILY.get(subfamily)
+    return SUPPORT_CATEGORY_BY_SUBFAMILY.get(subfamily, _DEFAULT_SUPPORT_CATEGORY)
 
 
 def run(path, country_code=None, dry_run=False):
