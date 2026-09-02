@@ -1,6 +1,6 @@
 """Snapshot the current catalog master data (products, BOM, coverage rates,
 vendors, purchasing/selling companies, country rate cards) from whatever
-DATABASE_URL points at into app/seed_data_ksa.json -- the file seed.py loads
+DATABASE_URL points at into app/seed_catalog.json -- the file seed.py loads
 from.
 
 Run this after any admin-side cleanup (renaming BOM items, assigning
@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from app.database import SessionLocal
 from app import models
 
-DEFAULT_OUTPUT = os.path.join(os.path.dirname(__file__), "app", "seed_data_ksa.json")
+DEFAULT_OUTPUT = os.path.join(os.path.dirname(__file__), "app", "seed_catalog.json")
 
 
 def _row(obj, fields):
@@ -52,12 +52,12 @@ def run(output_path: str):
                 ])
                 for c in db.query(models.Country).order_by(models.Country.id)
             ],
-            "wetworks_products": [
+            "products": [
                 _row(p, [
                     "id", "name", "uom", "category", "default_code", "odoo_id", "active", "needs_setup",
                     "notes", "purchasing_company_id", "default_vendor_id", "consumable_pct", "ohp_pct",
                 ])
-                for p in db.query(models.WetworksProduct).order_by(models.WetworksProduct.id)
+                for p in db.query(models.Product).order_by(models.Product.id)
             ],
             "support_items": [
                 _row(s, ["id", "name", "default_code", "odoo_id", "uom", "notes", "purchase_category", "default_vendor_id"])

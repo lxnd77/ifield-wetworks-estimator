@@ -1,7 +1,17 @@
-# I-Field Wetworks Estimator — project memory
+# I-Field Estimator — project memory
 
 Read this before making changes. Full user-facing docs are in `README.md`;
 this file is oriented at whoever (human or Claude) picks up development next.
+
+> **Rename (furniture extension, phase 00):** the app was "I-Field Wetworks
+> Estimator". The ORM class `WetworksProduct` is now `Product`, its table
+> `wetworks_products` is now `products` (alembic
+> `f1a2b3c4d5e6_rename_wetworks_products_to_products`), and the seed file
+> `app/seed_data_ksa.json` is now `app/seed_catalog.json`. "Wetworks"
+> remains a valid domain term — it will become one of the project/product
+> *type* values (wetworks / loose_furniture / fixed_furniture) in phase 01.
+> Local dev DB filenames (`ifield_wetworks.db`) and the repo directory name
+> are deliberately left unchanged for now (deploy-path coordination).
 
 ## What this is
 
@@ -58,7 +68,7 @@ docker compose up --build       # app on :80, api docs on :8000/docs
   and export. `_recompute_all_lines` is called on every read of estimate
   lines/summary/export, so estimate costs are always a live view over current
   master data (country rates, BOM, coverage) — not a stale snapshot.
-- `backend/app/models.py` — schema. Key relationships: `WetworksProduct` has
+- `backend/app/models.py` — schema. Key relationships: `Product` has
   many `BomLine` (recipe) and one `CoverageRate` (labor); `Country` has many
   `CountryMaterialPrice` (per support item); `Project` has many
   `ProjectLocation` and `EstimateLine`.
@@ -66,7 +76,7 @@ docker compose up --build       # app on :80, api docs on :8000/docs
   are hardcoded to match the sample files exactly; if the client's Odoo
   schema changes, update the header lists here first, then the row-building
   logic.
-- `backend/app/seed_data_ksa.json` — the actual catalog `seed.py` loads:
+- `backend/app/seed_catalog.json` — the actual catalog `seed.py` loads:
   products, BOM lines, coverage rates, vendors, purchasing/selling
   companies, country rate card. It's a live snapshot (via
   `dump_seed_data.py`) of the catalog *as cleaned up through the admin UI*

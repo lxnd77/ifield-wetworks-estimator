@@ -23,7 +23,7 @@ export default function Layout() {
           <div className="flex items-center gap-3">
             <img src="/ifield-logo.png" alt="i-field" className="h-6 w-auto" />
             <div className="border-l border-ink/15 pl-3 hidden sm:block">
-              <div className="font-display text-sm font-semibold text-ink leading-tight">Wetworks Estimator</div>
+              <div className="font-display text-sm font-semibold text-ink leading-tight">I-Field Estimator</div>
               <div className="text-[11px] uppercase tracking-wider text-ink/40 leading-tight">Turnkey contracting estimation</div>
             </div>
           </div>
@@ -47,7 +47,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <footer className="text-center text-xs text-ink/40 py-4 border-t border-ink/10">
-        i&middot;field Wetworks Estimator &middot; self-hosted
+        i&middot;field Estimator &middot; self-hosted
       </footer>
     </div>
   );

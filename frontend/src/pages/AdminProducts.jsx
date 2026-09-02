@@ -21,7 +21,7 @@ export default function AdminProducts() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold text-slate-800">Wetworks Product Master</h1>
+        <h1 className="text-xl font-semibold text-slate-800">Product Master</h1>
         <div className="text-xs text-slate-500">
           {products.filter((p) => !p.needs_setup).length} / {products.length} configured
         </div>

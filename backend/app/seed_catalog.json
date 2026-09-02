@@ -96,7 +96,7 @@
       "notes": "Seeded from the 'Khadar Villa' KSA sample workbooks (LBR Rate Calculation + INT_COST_SHEET)."
     }
   ],
-  "wetworks_products": [
+  "products": [
     {
       "id": 1,
       "name": "Floor GVT Tile 60 X120",

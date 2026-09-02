@@ -1,4 +1,4 @@
-# I-Field Wetworks Estimator
+# I-Field Estimator
 
 A web app that turns I-Field's manual, per-country Excel estimation process (LBR
 Rate Calculation + INT_COST_SHEET) into a live, parameterized estimation tool:
@@ -7,6 +7,10 @@ a quantity, and the app computes material cost, labor cost and a margin-applied
 sales value automatically -- then exports the estimate as two Odoo-import-ready
 Excel files (`sale.estimation` and BOM) in the exact column format of the
 sample files you provided.
+
+> Formerly "I-Field Wetworks Estimator". A Loose/Fixed Furniture extension is
+> in progress; the Wetworks estimator is unchanged. See
+> `docs/` / the project plan for the phased rollout.
 
 ## Quick start (Docker -- recommended for self-hosting)
 
@@ -186,8 +190,9 @@ backend/
     calc.py           costing engine (pure functions, unit-testable)
     service.py        recompute + totals, shared by API and export
     export_excel.py    the two Odoo-format exports
-    seed_products.py   verbatim Wetworks Product Master catalog
-    seed_ksa.py         KSA coverage/BOM/country data, reverse-engineered from the sample workbooks
+    seed_catalog.json  the catalog seed.py actually loads (live admin-cleaned snapshot)
+    seed_products.py   original verbatim Product Master catalog (historical reference only)
+    seed_ksa.py         KSA coverage/BOM/country data, reverse-engineered from the sample workbooks (historical reference only)
     main.py            FastAPI routes
   seed.py              creates + seeds the DB
 frontend/

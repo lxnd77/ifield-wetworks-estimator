@@ -11,6 +11,11 @@ class Vendor(Base):
     e.g. a specific tile or paint supplier. Distinct from PurchasingCompany,
     which is the I-Field entity that buys from this vendor on the purchasing
     country's behalf."""
+
+    # NOTE (furniture extension, phase 00): the catalog is no longer
+    # Wetworks-only. WetworksProduct -> Product, table wetworks_products ->
+    # products. "Wetworks" survives only as a project/product *type* value,
+    # not in identifiers.
     __tablename__ = "vendors"
 
     id = Column(Integer, primary_key=True)
@@ -19,9 +24,9 @@ class Vendor(Base):
 
 
 class PurchasingCompany(Base):
-    """An I-Field entity that buys a finished Wetworks line item on behalf of
-    the selling company, e.g. 'I FIELD FURNISHING TRADING LLC' (Dubai) for
-    Wetworks. Tied to a WetworksProduct as its default purchasing route."""
+    """An I-Field entity that buys a finished line item on behalf of the
+    selling company, e.g. 'I FIELD FURNISHING TRADING LLC' (Dubai) for
+    Wetworks. Tied to a Product as its default purchasing route."""
     __tablename__ = "purchasing_companies"
 
     id = Column(Integer, primary_key=True)
@@ -43,7 +48,7 @@ class SellingCompany(Base):
 
 class SupportItem(Base):
     """A purchasable material / BOM component (cement, gypsum board, paint tin,
-    screws...). A Wetworks product's own 'primary' material (e.g. the tile itself)
+    screws...). A product's own 'primary' material (e.g. the tile itself)
     is also represented as a SupportItem so it can carry a country-specific price
     just like any other component."""
     __tablename__ = "support_items"
@@ -60,7 +65,7 @@ class SupportItem(Base):
     odoo_id = Column(String, nullable=True)
     uom = Column(String, nullable=False, default="Pcs")
     notes = Column(Text, nullable=True)
-    # Independent of WetworksProduct.category -- classifies the BOM item
+    # Independent of Product.category -- classifies the BOM item
     # itself for purchasing/export purposes (which categories get a
     # user-entered item code during estimation: Paint/Tile/Stone/Metal).
     purchase_category = Column(String, nullable=True)
@@ -70,9 +75,9 @@ class SupportItem(Base):
     default_vendor = relationship("Vendor")
 
 
-class WetworksProduct(Base):
-    """A Wetworks line item from the Product Master (e.g. 'Floor GVT Tile 60 X120')."""
-    __tablename__ = "wetworks_products"
+class Product(Base):
+    """A line item from the Product Master (e.g. 'Floor GVT Tile 60 X120')."""
+    __tablename__ = "products"
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
@@ -89,7 +94,7 @@ class WetworksProduct(Base):
     notes = Column(Text, nullable=True)
     # Default purchasing route: the I-Field entity that buys this finished
     # line item on behalf of the project's selling company (e.g. Dubai for
-    # Wetworks). default_vendor_id is an override for the rare case the
+    # Wetworks projects). default_vendor_id is an override for the rare case the
     # line item is bought whole, directly from a vendor, bypassing the
     # purchasing company.
     purchasing_company_id = Column(Integer, ForeignKey("purchasing_companies.id"), nullable=True)
@@ -111,20 +116,20 @@ class WetworksProduct(Base):
 
 class BomLine(Base):
     """One recipe line: how much of a SupportItem is needed per 1 unit of a
-    WetworksProduct, before/after wastage. Recipe quantities are global
+    Product, before/after wastage. Recipe quantities are global
     (country-independent) per the product decision -- only the SupportItem's
     price varies by country."""
     __tablename__ = "bom_lines"
 
     id = Column(Integer, primary_key=True)
-    product_id = Column(Integer, ForeignKey("wetworks_products.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     support_item_id = Column(Integer, ForeignKey("support_items.id"), nullable=False)
     qty_per_unit = Column(Float, nullable=False)  # before wastage
     wastage_pct = Column(Float, nullable=False, default=0.0)  # e.g. 0.1 = 10%
     role = Column(String, nullable=False, default="fixing")  # 'primary' or 'fixing' -- consumable/OHP % (on the product) applies only to 'primary' lines
     sort_order = Column(Integer, nullable=False, default=0)
 
-    product = relationship("WetworksProduct", back_populates="bom_lines")
+    product = relationship("Product", back_populates="bom_lines")
     support_item = relationship("SupportItem")
 
 
@@ -134,7 +139,7 @@ class CoverageRate(Base):
     __tablename__ = "coverage_rates"
 
     id = Column(Integer, primary_key=True)
-    product_id = Column(Integer, ForeignKey("wetworks_products.id"), nullable=False, unique=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, unique=True)
     primary_coverage_per_day = Column(Float, nullable=False)  # e.g. sqm/day the crew produces
     secondary_coverage_per_day = Column(Float, nullable=True, default=0.0)  # e.g. grouting sqm/day per worker
     inhouse_count = Column(Integer, nullable=False, default=2)
@@ -144,7 +149,7 @@ class CoverageRate(Base):
     inhouse_salary_month_local = Column(Float, nullable=False, default=0.0)
     local_salary_month_local = Column(Float, nullable=False, default=0.0)
 
-    product = relationship("WetworksProduct", back_populates="coverage_rate")
+    product = relationship("Product", back_populates="coverage_rate")
 
     @property
     def total_labor(self):
@@ -262,7 +267,7 @@ class EstimateLine(Base):
     id = Column(Integer, primary_key=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     location_id = Column(Integer, ForeignKey("project_locations.id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("wetworks_products.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     qty = Column(Float, nullable=False)
     margin_pct_override = Column(Float, nullable=True)
     drawing_no = Column(String, nullable=True)
@@ -287,7 +292,7 @@ class EstimateLine(Base):
 
     project = relationship("Project", back_populates="estimate_lines")
     location = relationship("ProjectLocation", back_populates="estimate_lines")
-    product = relationship("WetworksProduct")
+    product = relationship("Product")
     components = relationship("EstimateLineComponent", back_populates="estimate_line", cascade="all, delete-orphan")
 
 

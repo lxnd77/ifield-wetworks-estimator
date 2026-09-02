@@ -18,7 +18,7 @@ so blank/omitted values are safe.
 
 The sale estimation sheet's product_id columns and the product import
 sheet's own "id" column get the Odoo external id populated alongside them,
-from WetworksProduct.odoo_id / SupportItem.odoo_id, whenever that's been set
+from Product.odoo_id / SupportItem.odoo_id, whenever that's been set
 -- blank otherwise. That's what lets Odoo match an existing record instead
 of creating a duplicate or relying on name matching. The BOM sheet does not
 carry id columns -- it only ever references products/support items by name.

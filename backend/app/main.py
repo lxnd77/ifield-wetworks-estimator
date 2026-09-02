@@ -20,7 +20,7 @@ from .export_excel import (
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="I-Field Wetworks Estimator")
+app = FastAPI(title="I-Field Estimator")
 
 app.add_middleware(
     CORSMiddleware,
@@ -75,22 +75,22 @@ def reset_user_password(user_id: int, payload: schemas.PasswordResetIn, db: Sess
 # ---------------------------------------------------------------- products
 @app.get("/api/products", response_model=List[schemas.ProductOut])
 def list_products(category: Optional[str] = None, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
-    q = db.query(models.WetworksProduct).options(
-        joinedload(models.WetworksProduct.purchasing_company),
-        joinedload(models.WetworksProduct.default_vendor),
-    ).filter(models.WetworksProduct.active == True)
+    q = db.query(models.Product).options(
+        joinedload(models.Product.purchasing_company),
+        joinedload(models.Product.default_vendor),
+    ).filter(models.Product.active == True)
     if category:
-        q = q.filter(models.WetworksProduct.category == category)
-    return q.order_by(models.WetworksProduct.category, models.WetworksProduct.name).all()
+        q = q.filter(models.Product.category == category)
+    return q.order_by(models.Product.category, models.Product.name).all()
 
 
 @app.get("/api/products/{product_id}", response_model=schemas.ProductDetailOut)
 def get_product(product_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
-    p = db.query(models.WetworksProduct).options(
-        joinedload(models.WetworksProduct.bom_lines).joinedload(models.BomLine.support_item),
-        joinedload(models.WetworksProduct.coverage_rate),
-        joinedload(models.WetworksProduct.purchasing_company),
-        joinedload(models.WetworksProduct.default_vendor),
+    p = db.query(models.Product).options(
+        joinedload(models.Product.bom_lines).joinedload(models.BomLine.support_item),
+        joinedload(models.Product.coverage_rate),
+        joinedload(models.Product.purchasing_company),
+        joinedload(models.Product.default_vendor),
     ).get(product_id)
     if not p:
         raise HTTPException(404, "product not found")
@@ -99,7 +99,7 @@ def get_product(product_id: int, db: Session = Depends(get_db), user: models.Use
 
 @app.post("/api/products", response_model=schemas.ProductOut)
 def create_product(payload: schemas.ProductIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
-    p = models.WetworksProduct(**payload.model_dump(), needs_setup=True)
+    p = models.Product(**payload.model_dump(), needs_setup=True)
     db.add(p)
     db.commit()
     db.refresh(p)
@@ -108,7 +108,7 @@ def create_product(payload: schemas.ProductIn, db: Session = Depends(get_db), us
 
 @app.put("/api/products/{product_id}", response_model=schemas.ProductOut)
 def update_product(product_id: int, payload: schemas.ProductIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
-    p = db.query(models.WetworksProduct).get(product_id)
+    p = db.query(models.Product).get(product_id)
     if not p:
         raise HTTPException(404, "product not found")
     for k, v in payload.model_dump().items():
@@ -120,7 +120,7 @@ def update_product(product_id: int, payload: schemas.ProductIn, db: Session = De
 
 @app.put("/api/products/{product_id}/coverage-rate", response_model=schemas.CoverageRateOut)
 def set_coverage_rate(product_id: int, payload: schemas.CoverageRateIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
-    p = db.query(models.WetworksProduct).get(product_id)
+    p = db.query(models.Product).get(product_id)
     if not p:
         raise HTTPException(404, "product not found")
     if p.coverage_rate:
@@ -138,7 +138,7 @@ def set_coverage_rate(product_id: int, payload: schemas.CoverageRateIn, db: Sess
 
 @app.post("/api/products/{product_id}/bom-lines", response_model=schemas.BomLineOut)
 def add_bom_line(product_id: int, payload: schemas.BomLineIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
-    p = db.query(models.WetworksProduct).get(product_id)
+    p = db.query(models.Product).get(product_id)
     if not p:
         raise HTTPException(404, "product not found")
     support_item_id = payload.support_item_id
@@ -193,7 +193,7 @@ def delete_bom_line(bom_line_id: int, db: Session = Depends(get_db), user: model
     return {"ok": True}
 
 
-def _refresh_needs_setup(db: Session, product: models.WetworksProduct):
+def _refresh_needs_setup(db: Session, product: models.Product):
     db.flush()
     has_bom = db.query(models.BomLine).filter(models.BomLine.product_id == product.id).count() > 0
     has_coverage = db.query(models.CoverageRate).filter(models.CoverageRate.product_id == product.id).count() > 0
@@ -586,10 +586,10 @@ def project_product_costs(project_id: int, db: Session = Depends(get_db), user: 
     in JS. Reuses calc.py exactly as recompute_estimate_line does."""
     project = _get_owned_project(db, project_id, user)
     price_lookup = calc.price_lookup_factory(db, project.country_id)
-    products = db.query(models.WetworksProduct).options(
-        joinedload(models.WetworksProduct.bom_lines),
-        joinedload(models.WetworksProduct.coverage_rate),
-    ).filter(models.WetworksProduct.active == True).all()
+    products = db.query(models.Product).options(
+        joinedload(models.Product.bom_lines),
+        joinedload(models.Product.coverage_rate),
+    ).filter(models.Product.active == True).all()
     result = {}
     for p in products:
         material = calc.compute_material_cost(p.bom_lines, price_lookup, p.consumable_pct, p.ohp_pct)
@@ -655,11 +655,11 @@ def _load_project_for_export(db: Session, project_id: int, user: models.User) ->
     project = _get_owned_project(db, project_id, user, options=[
         joinedload(models.Project.selling_company),
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.product)
-        .joinedload(models.WetworksProduct.purchasing_company),
+        .joinedload(models.Product.purchasing_company),
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.product)
-        .joinedload(models.WetworksProduct.default_vendor),
+        .joinedload(models.Product.default_vendor),
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.product)
-        .joinedload(models.WetworksProduct.bom_lines),
+        .joinedload(models.Product.bom_lines),
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.location),
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.components).joinedload(
             models.EstimateLineComponent.support_item).joinedload(models.SupportItem.default_vendor),
