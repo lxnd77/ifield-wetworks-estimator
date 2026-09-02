@@ -606,7 +606,6 @@ function LocationBlock({ location, lines, products, supportItems, showLabor, cos
 
 function FurnitureBomEditor({ line, product, components, supportItems, onAdd, onUpdate, onDelete }) {
   const [adding, setAdding] = useState(false);
-  const pickable = supportItems.filter((s) => FURNITURE_BOM_CATEGORIES.includes(s.purchase_category));
 
   return (
     <div className="max-w-3xl">
@@ -656,7 +655,7 @@ function FurnitureBomEditor({ line, product, components, supportItems, onAdd, on
       </table>
       {adding && (
         <AddComponentForm
-          supportItems={pickable}
+          supportItems={supportItems}
           existing={components.map((c) => c.support_item_id)}
           onCancel={() => setAdding(false)}
           onSubmit={(payload) => { onAdd(payload); setAdding(false); }}

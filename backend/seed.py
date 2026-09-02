@@ -15,6 +15,7 @@ Usage:  python seed.py
 import sys
 import os
 import json
+from collections import Counter
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.database import Base, engine, SessionLocal
@@ -122,8 +123,13 @@ def run():
         db.commit()
 
         total = len(data["products"])
-        configured = db.query(models.Product).filter(models.Product.needs_setup == False).count()
-        print(f"Seeded {total} products ({configured} fully configured for KSA, {total - configured} flagged needs_setup).")
+        by_type = Counter(p.product_type for p in db.query(models.Product))
+        ww_ready = db.query(models.Product).filter(
+            models.Product.product_type == "wetworks", models.Product.needs_setup == False).count()
+        print(f"Seeded {total} products: "
+              f"{by_type.get('wetworks', 0)} wetworks ({ww_ready} configured for KSA), "
+              f"{by_type.get('loose_furniture', 0)} loose furniture, "
+              f"{by_type.get('fixed_furniture', 0)} fixed furniture.")
         print(f"Support items: {db.query(models.SupportItem).count()}")
         print(f"BOM lines: {db.query(models.BomLine).count()}")
         print(f"Coverage rates: {db.query(models.CoverageRate).count()}")
