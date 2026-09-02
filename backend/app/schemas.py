@@ -296,13 +296,23 @@ class EstimateLineComponentOut(BaseModel):
     id: int
     support_item_id: int
     support_item: SupportItemOut
+    qty_per_unit: Optional[float] = None
     qty: float
     unit_cost: float
     total_cost: float
+    role: str = "fixing"
     item_code: Optional[str] = None
 
 
 class EstimateLineComponentCodeIn(BaseModel):
+    item_code: Optional[str] = None
+
+
+class EstimateLineComponentIn(BaseModel):
+    """Add / edit a user-authored component on a furniture estimate line."""
+    support_item_id: int
+    qty_per_unit: float
+    role: str = "fixing"
     item_code: Optional[str] = None
 
 
@@ -320,6 +330,7 @@ class EstimateLineOut(BaseModel):
     description: Optional[str] = None
     dimension: Optional[str] = None
     item_code: Optional[str] = None
+    factory_work_cost: Optional[float] = None
     material_cost_per_unit: float
     labor_cost_per_unit: float
     wages_cost_per_unit: float
@@ -341,3 +352,4 @@ class EstimateLineIn(BaseModel):
     description: Optional[str] = None
     dimension: Optional[str] = None
     item_code: Optional[str] = None
+    factory_work_cost: Optional[float] = None

@@ -104,7 +104,10 @@ def get_product(product_id: int, db: Session = Depends(get_db), user: models.Use
 def create_product(payload: schemas.ProductIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     if not project_types.is_valid(payload.product_type):
         raise HTTPException(422, f"unknown product_type {payload.product_type!r}")
-    p = models.Product(**payload.model_dump(), needs_setup=True)
+    # Furniture products carry no catalog-level recipe or coverage rate (the
+    # BOM is entered per estimate line), so nothing needs setting up.
+    needs_setup = project_types.labor_applies(payload.product_type)
+    p = models.Product(**payload.model_dump(), needs_setup=needs_setup)
     db.add(p)
     db.commit()
     db.refresh(p)
@@ -203,11 +206,12 @@ def delete_bom_line(bom_line_id: int, db: Session = Depends(get_db), user: model
 
 def _refresh_needs_setup(db: Session, product: models.Product):
     db.flush()
-    has_bom = db.query(models.BomLine).filter(models.BomLine.product_id == product.id).count() > 0
     if not project_types.labor_applies(product.product_type):
-        # Furniture products carry no coverage rate -- a BOM is all they need.
-        product.needs_setup = not has_bom
+        # Furniture products have no catalog recipe or coverage rate -- the
+        # BOM is supplied per estimate line -- so they are always ready.
+        product.needs_setup = False
         return
+    has_bom = db.query(models.BomLine).filter(models.BomLine.product_id == product.id).count() > 0
     has_coverage = db.query(models.CoverageRate).filter(models.CoverageRate.product_id == product.id).count() > 0
     product.needs_setup = not (has_bom and has_coverage)
 
@@ -563,16 +567,89 @@ def _get_owned_line(db: Session, line_id: int, user: models.User) -> models.Esti
     return line
 
 
+def _validate_furniture_line(line: models.EstimateLine):
+    """A furniture line that carries BOM components must have a
+    project-unique item code -- the standalone BOM export is keyed by it, so
+    two such lines sharing a code would collapse into one wrong mrp.bom."""
+    if not project_types.bom_per_line(line.project.project_type) or not line.components:
+        return
+    code = (line.item_code or "").strip()
+    if not code:
+        raise HTTPException(422, "This furniture line has BOM components -- it needs an item code.")
+    for other in line.project.estimate_lines:
+        if other.id != line.id and other.components and (other.item_code or "").strip().lower() == code.lower():
+            raise HTTPException(422, f"Item code '{code}' is already used by another line in this project.")
+
+
 @app.put("/api/estimate-lines/{line_id}", response_model=schemas.EstimateLineOut)
 def update_estimate_line(line_id: int, payload: schemas.EstimateLineIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     line = _get_owned_line(db, line_id, user)
     for k, v in payload.model_dump().items():
         setattr(line, k, v)
     db.flush()
+    _validate_furniture_line(line)
     service.recompute_estimate_line(db, line)
     db.commit()
     db.refresh(line)
     return line
+
+
+def _get_owned_component(db: Session, component_id: int, user: models.User) -> models.EstimateLineComponent:
+    comp = db.query(models.EstimateLineComponent).options(
+        joinedload(models.EstimateLineComponent.estimate_line)
+        .joinedload(models.EstimateLine.project)
+    ).get(component_id)
+    if not comp or (not user.is_admin and comp.estimate_line.project.owner_id != user.id):
+        raise HTTPException(404, "estimate line component not found")
+    return comp
+
+
+@app.post("/api/estimate-lines/{line_id}/components", response_model=schemas.EstimateLineComponentOut)
+def add_estimate_line_component(line_id: int, payload: schemas.EstimateLineComponentIn,
+                                db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    line = _get_owned_line(db, line_id, user)
+    if not project_types.bom_per_line(line.project.project_type):
+        raise HTTPException(400, "components are driven by the product recipe for this project type")
+    if db.query(models.EstimateLineComponent).filter_by(
+            estimate_line_id=line_id, support_item_id=payload.support_item_id).first():
+        raise HTTPException(400, "that support item is already a component of this line")
+    comp = models.EstimateLineComponent(
+        estimate_line_id=line_id, support_item_id=payload.support_item_id,
+        qty_per_unit=payload.qty_per_unit, role=payload.role, item_code=payload.item_code,
+        qty=0.0, unit_cost=0.0, total_cost=0.0,
+    )
+    db.add(comp)
+    db.flush()
+    service.recompute_estimate_line(db, line)
+    db.commit()
+    db.refresh(comp)
+    return comp
+
+
+@app.put("/api/estimate-line-components/{component_id}", response_model=schemas.EstimateLineComponentOut)
+def update_estimate_line_component(component_id: int, payload: schemas.EstimateLineComponentIn,
+                                   db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    comp = _get_owned_component(db, component_id, user)
+    comp.support_item_id = payload.support_item_id
+    comp.qty_per_unit = payload.qty_per_unit
+    comp.role = payload.role
+    comp.item_code = payload.item_code
+    db.flush()
+    service.recompute_estimate_line(db, comp.estimate_line)
+    db.commit()
+    db.refresh(comp)
+    return comp
+
+
+@app.delete("/api/estimate-line-components/{component_id}")
+def delete_estimate_line_component(component_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    comp = _get_owned_component(db, component_id, user)
+    line = comp.estimate_line
+    db.delete(comp)
+    db.flush()
+    service.recompute_estimate_line(db, line)
+    db.commit()
+    return {"ok": True}
 
 
 @app.delete("/api/estimate-lines/{line_id}")
@@ -705,7 +782,32 @@ def _load_project_for_export(db: Session, project_id: int, user: models.User) ->
     ])
     _recompute_all_lines(db, project)
     db.commit()
+    _validate_project_for_export(project)
     return project
+
+
+def _validate_project_for_export(project: models.Project):
+    """Furniture lines that carry a BOM must be export-ready: a project-unique
+    item code (BOM export dedup) and a Factory Work cost."""
+    if not project_types.bom_per_line(project.project_type):
+        return
+    problems = []
+    seen_codes = {}
+    for line in project.estimate_lines:
+        if not line.components:
+            continue
+        label = line.product.name if line.product else f"line {line.id}"
+        code = (line.item_code or "").strip()
+        if not code:
+            problems.append(f"'{label}' has BOM components but no item code")
+        elif code.lower() in seen_codes:
+            problems.append(f"item code '{code}' is used by both '{seen_codes[code.lower()]}' and '{label}'")
+        else:
+            seen_codes[code.lower()] = label
+        if not line.factory_work_cost or line.factory_work_cost <= 0:
+            problems.append(f"'{label}' has BOM components but no Factory Work cost")
+    if problems:
+        raise HTTPException(422, "Cannot export yet: " + "; ".join(problems))
 
 
 @app.get("/api/health")

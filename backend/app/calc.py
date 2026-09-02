@@ -71,6 +71,36 @@ def compute_material_cost(bom_lines, price_lookup, consumable_pct: float = 0.0, 
     return MaterialResult(cost_per_unit=total, components=components)
 
 
+def compute_material_cost_from_components(components, price_lookup,
+                                         consumable_pct: float = 0.0, ohp_pct: float = 0.0) -> MaterialResult:
+    """Furniture variant of compute_material_cost: the per-unit component
+    quantities come from user-entered EstimateLineComponent rows
+    (`qty_per_unit`), not a fixed recipe. Same markup rule -- the product's
+    consumable%/OHP% loads onto `role == "primary"` rows only.
+
+    `components`: iterable of EstimateLineComponent ORM objects (with
+    `.support_item` loaded). No wastage% here -- furniture components are
+    priced at exactly the quantity the estimator enters.
+    """
+    markup = (consumable_pct or 0) + (ohp_pct or 0)
+    out = []
+    total = 0.0
+    for c in components:
+        qty_per_unit = c.qty_per_unit or 0.0
+        unit_price = price_lookup(c.support_item_id)
+        line_markup = markup if c.role == "primary" else 0.0
+        cost = qty_per_unit * unit_price * (1 + line_markup)
+        out.append(ComponentCost(
+            support_item_id=c.support_item_id,
+            support_item_name=c.support_item.name if c.support_item else "",
+            qty_per_unit=qty_per_unit,
+            unit_price_usd=unit_price,
+            cost_per_unit=cost,
+        ))
+        total += cost
+    return MaterialResult(cost_per_unit=total, components=out)
+
+
 def compute_labor_cost(coverage_rate, country, duration_months: float) -> LaborResult:
     """coverage_rate: CoverageRate ORM object. Carries the product's own wages
     (salary varies by trade -- a tiler earns differently than a painter --

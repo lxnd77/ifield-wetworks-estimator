@@ -29,22 +29,32 @@ CONFIG = {
     WETWORKS: {
         "label": "Wetworks",
         "labor_applies": True,
+        # False: the product's BOM recipe fixes component quantities.
+        # True: component quantities are entered per estimate line, and each
+        # line with a BOM carries a per-project "Factory Work" charge.
+        "bom_per_line": False,
         "dates_required": True,
         "odoo_estimation_type": "Wetworks",
     },
     LOOSE_FURNITURE: {
         "label": "Loose Furniture",
         "labor_applies": False,
+        "bom_per_line": True,
         "dates_required": False,
         "odoo_estimation_type": "Loose Furniture",  # TODO confirm exact Odoo value
     },
     FIXED_FURNITURE: {
         "label": "Fixed Furniture",
         "labor_applies": False,
+        "bom_per_line": True,
         "dates_required": False,
         "odoo_estimation_type": "Fixed Furniture",  # TODO confirm exact Odoo value
     },
 }
+
+# Support-item purchase_category values the furniture side uses (drives the
+# component picker filter). Wetworks uses Paint / Tile / Stone / Metal.
+FURNITURE_BOM_CATEGORIES = ["Fabric", "Stone", "Metal", "Accessories"]
 
 VALUES = tuple(CONFIG)
 
@@ -63,6 +73,10 @@ def label(project_type) -> str:
 
 def labor_applies(project_type) -> bool:
     return _cfg(project_type)["labor_applies"]
+
+
+def bom_per_line(project_type) -> bool:
+    return _cfg(project_type)["bom_per_line"]
 
 
 def dates_required(project_type) -> bool:

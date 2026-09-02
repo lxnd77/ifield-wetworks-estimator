@@ -295,8 +295,16 @@ class EstimateLine(Base):
     description = Column(String, nullable=True)
     dimension = Column(String, nullable=True)  # not currently surfaced in any export (was product-import's product_dimension column, removed)
     # User-entered during estimation; combines with Project.code to form the
-    # Odoo product reference code for this line item.
+    # Odoo product reference code for this line item. Required + unique within
+    # the project for furniture lines that carry components (the standalone
+    # BOM export is keyed by it) -- enforced at the API layer.
     item_code = Column(String, nullable=True)
+
+    # Furniture only: the per-project "Factory Work for <product>" charge that
+    # every furniture line with a BOM must carry (qty is always 1). Folded
+    # into material_cost_per_unit; emitted as a qty-1 component row in all
+    # three exports. Null / unused for wetworks.
+    factory_work_cost = Column(Float, nullable=True)
 
     # computed / cached at save time (per unit, in USD)
     material_cost_per_unit = Column(Float, default=0.0)
@@ -314,16 +322,32 @@ class EstimateLine(Base):
 
 
 class EstimateLineComponent(Base):
-    """Snapshot of the exploded BOM for one estimate line, at the country prices
-    used when the line was last computed. Powers the BOM Odoo export."""
+    """One BOM component of an estimate line, priced at the country rates used
+    when the line was last computed. Powers the BOM Odoo export.
+
+    For WETWORKS lines these rows are a *derived snapshot* -- rebuilt on every
+    recompute by exploding the product's fixed recipe (qty_per_unit stays
+    null; `qty` is the whole-pack-rounded total).
+
+    For FURNITURE lines these rows are *user-authored* -- the estimator picks
+    each support item (Fabric / Stone / Metal / Accessories) and enters
+    `qty_per_unit` for this project; recompute only re-prices them against
+    current country rates, never adds or removes them.
+    """
     __tablename__ = "estimate_line_components"
 
     id = Column(Integer, primary_key=True)
     estimate_line_id = Column(Integer, ForeignKey("estimate_lines.id"), nullable=False)
     support_item_id = Column(Integer, ForeignKey("support_items.id"), nullable=False)
+    # Furniture: user-entered consumption per 1 unit of the product. Wetworks:
+    # null (the recipe drives it; only the rounded total `qty` is stored).
+    qty_per_unit = Column(Float, nullable=True)
     qty = Column(Float, nullable=False)  # total qty for the line's full estimate qty
     unit_cost = Column(Float, nullable=False)  # USD per uom of the support item
     total_cost = Column(Float, nullable=False)
+    # 'primary' or 'fixing' -- the product's consumable%/OHP% markup loads onto
+    # 'primary' rows only, same rule as BomLine.role.
+    role = Column(String, nullable=False, default="fixing", server_default="fixing")
     # User-entered during estimation; preserved across recompute_estimate_line
     # (which upserts by support_item_id rather than delete/recreate) so it
     # survives rate/BOM changes that trigger a recompute.
