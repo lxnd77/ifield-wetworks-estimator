@@ -99,7 +99,45 @@ DATABASE_URL="postgresql://user:pass@host/db" python3 seed.py
 
 This is destructive (it wipes and rebuilds), so only run it once against
 production, or deliberately when you want to reset it back to the seeded
-KSA dataset.
+dataset.
+
+## 4. After every deploy that changes the schema -- run migrations
+
+`create_all()` only ever *creates missing tables*; it never adds a column
+to a table that already exists, and it never renames one. So when a deploy
+adds a model field (or renames a table), the live Postgres database is left
+behind and inserts start failing with a 500 ("Failed to create project" in
+the UI). **Alembic is the source of truth for schema changes** -- run it
+against production from your machine after the deploy:
+
+```bash
+cd backend
+DATABASE_URL="postgresql://user:pass@host/db" python3 -m alembic upgrade head
+```
+
+The migrations are additive (new columns get a server default and existing
+rows backfill), so this is **not** destructive -- projects and estimates
+survive.
+
+First time only: a database that was originally built by `create_all()` has
+no `alembic_version` row, so Alembic would try to re-run the baseline and
+fail on "table already exists". Stamp it at the revision that matches the
+current schema *before* the pending migrations, then upgrade:
+
+```bash
+# b7c8d9e0f1a2 = the head just before the furniture extension
+DATABASE_URL="..." python3 -m alembic stamp b7c8d9e0f1a2
+DATABASE_URL="..." python3 -m alembic upgrade head
+```
+
+If production has no data worth keeping, `python3 seed.py` (section 3) is
+the simpler reset -- it rebuilds the schema from scratch and reloads the
+full catalog.
+
+> **Postgres driver:** `backend/requirements.txt` is SQLite-only. To run
+> `seed.py` / `alembic` against Postgres from your machine, `pip install
+> pg8000` and use a `postgresql+pg8000://...` URL (or `pip install
+> psycopg2-binary` and a plain `postgresql://...` URL).
 
 ## Notes / gotchas
 
