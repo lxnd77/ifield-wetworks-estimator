@@ -208,21 +208,21 @@ def test_products_filtered_by_type(client):
     assert r.json() == []
 
 
-# ---- furniture costing: material only, no labor (phase 02 / 05) ----
+# ---- furniture costing (phase 02 / 05 / 08) ----
 
 _line_seq = [0]
 
 
-def _make_line(db, project_type, *, with_coverage=False, factory_work=None, item_code=None,
-               consumable_pct=0.0, ohp_pct=0.0):
+def _make_line(db, project_type, *, with_coverage=False, factory_work_cny=None, item_code=None,
+               comp_code=None, comp_qty_per_unit=2.0, comp_price_cny=10.0,
+               ohp_pct=0.0, cny_per_usd=1.0, project_code=None):
     """Insert a self-contained catalog + a one-line estimate; return the line.
+    Testland fx (for wetworks) = 1.0, line qty = 3.
 
-    One BOM item consuming 2 per unit of a $10 support item -> $20/unit
-    material before markup. Testland fx = 1.0, line qty = 3.
-
-    Wetworks: the 2-per-unit qty is a fixed BomLine recipe.
-    Furniture: it's a user-entered EstimateLineComponent (role 'primary'),
-    plus the per-line `factory_work` charge.
+    Wetworks: a fixed BomLine recipe (2 per unit of a $10 support item).
+    Furniture: a user-authored EstimateLineComponent (support item +
+    comp_qty_per_unit + comp_price_cny (CNY) + comp_code), plus the per-line
+    factory_work_cny charge. cny_per_usd defaults to 1.0 so CNY == USD.
     """
     country = db.query(models.Country).filter_by(code="TST").one()
     _line_seq[0] += 1
@@ -230,16 +230,16 @@ def _make_line(db, project_type, *, with_coverage=False, factory_work=None, item
     furniture = project_type != "wetworks"
     product = models.Product(
         name=f"P {suffix}", uom="Pcs", category="Test", product_type=project_type,
-        needs_setup=False, consumable_pct=consumable_pct, ohp_pct=ohp_pct,
+        needs_setup=False, consumable_pct=0.0, ohp_pct=ohp_pct,
     )
     db.add(product)
     db.flush()
     si = models.SupportItem(name=f"SI {suffix}", uom="Pcs", purchase_category="Fabric")
     db.add(si)
     db.flush()
-    db.add(models.CountryMaterialPrice(country_id=country.id, support_item_id=si.id,
-                                       unit_price_local=10.0))
     if not furniture:
+        db.add(models.CountryMaterialPrice(country_id=country.id, support_item_id=si.id,
+                                           unit_price_local=10.0))
         db.add(models.BomLine(product_id=product.id, support_item_id=si.id,
                               qty_per_unit=2.0, wastage_pct=0.0, role="primary", sort_order=0))
     if with_coverage:
@@ -248,20 +248,23 @@ def _make_line(db, project_type, *, with_coverage=False, factory_work=None, item
             inhouse_count=1, local_count=0, inhouse_salary_month_local=2600.0,
             local_salary_month_local=0.0))
     project = models.Project(
-        name=f"Proj {suffix}", country_id=country.id, project_type=project_type,
-        start_date=date(2026, 1, 1), end_date=date(2026, 7, 1), default_margin_pct=0.0)
+        name=f"Proj {suffix}", country_id=country.id, project_type=project_type, code=project_code,
+        start_date=date(2026, 1, 1), end_date=date(2026, 7, 1), default_margin_pct=0.0,
+        cny_per_usd=cny_per_usd if furniture else None)
     db.add(project)
     db.flush()
     loc = models.ProjectLocation(project_id=project.id, name="L")
     db.add(loc)
     db.flush()
-    line = models.EstimateLine(project_id=project.id, location_id=loc.id, product_id=product.id,
-                               qty=3.0, item_code=item_code, factory_work_cost=factory_work)
+    line = models.EstimateLine(
+        project_id=project.id, location_id=loc.id, product_id=product.id, qty=3.0,
+        item_code=item_code, factory_work_cost_cny=factory_work_cny)
     db.add(line)
     db.flush()
     if furniture:
         db.add(models.EstimateLineComponent(
-            estimate_line_id=line.id, support_item_id=si.id, qty_per_unit=2.0, role="primary",
+            estimate_line_id=line.id, support_item_id=si.id, qty_per_unit=comp_qty_per_unit,
+            unit_price_cny=comp_price_cny, item_code=comp_code or f"C{_line_seq[0]}",
             qty=0.0, unit_cost=0.0, total_cost=0.0))
         db.flush()
     return line
@@ -271,37 +274,50 @@ def test_furniture_line_prices_material_only():
     db = SessionLocal()
     try:
         # Even with a stray coverage rate, a furniture line carries no labor;
-        # material = components ($20) + Factory Work ($5).
-        line = _make_line(db, "loose_furniture", with_coverage=True, factory_work=5.0, item_code="F1")
+        # material = components (2*10) + Factory Work (5), fx 1.0, ohp 0.
+        line = _make_line(db, "loose_furniture", with_coverage=True,
+                          factory_work_cny=5.0, item_code="F1")
         service.recompute_estimate_line(db, line)
         db.commit()
         assert line.material_cost_per_unit == 25.0
         assert line.labor_cost_per_unit == 0.0
-        assert line.wages_cost_per_unit == 0.0
-        assert line.labor_expenses_per_unit == 0.0
         comp = line.components[0]
         assert comp.qty == 6.0 and comp.unit_cost == 10.0 and comp.total_cost == 60.0
     finally:
         db.close()
 
 
-def test_furniture_material_markup_applies_to_primary_component():
+def test_furniture_ohp_applies_to_line_total_not_components():
     db = SessionLocal()
     try:
-        line = _make_line(db, "fixed_furniture", factory_work=0.0, item_code="F2",
-                          consumable_pct=0.15, ohp_pct=0.10)
+        line = _make_line(db, "fixed_furniture", factory_work_cny=10.0, item_code="F2", ohp_pct=0.10)
         service.recompute_estimate_line(db, line)
         db.commit()
-        # 2 * 10 * 1.25 = 25 (primary row picks up the markup)
-        assert line.material_cost_per_unit == 25.0
+        # (2*10 + 10) * 1.10 = 33
+        assert abs(line.material_cost_per_unit - 33.0) < 1e-9
+        # component total stays raw (no OHP): 2 * 10 * qty(3)
+        assert line.components[0].total_cost == 60.0
     finally:
         db.close()
 
 
-def test_furniture_component_reprices_on_qty_and_price_change():
+def test_furniture_cny_conversion():
     db = SessionLocal()
     try:
-        line = _make_line(db, "loose_furniture", factory_work=1.0, item_code="F3")
+        line = _make_line(db, "loose_furniture", cny_per_usd=7.2, comp_qty_per_unit=1.0,
+                          comp_price_cny=72.0, factory_work_cny=36.0, item_code="F-CNY")
+        service.recompute_estimate_line(db, line)
+        db.commit()
+        assert abs(line.components[0].unit_cost - 10.0) < 1e-9      # 72 / 7.2
+        assert abs(line.material_cost_per_unit - 15.0) < 1e-9        # 1*10 + 36/7.2
+    finally:
+        db.close()
+
+
+def test_furniture_component_reprices_on_qty_change():
+    db = SessionLocal()
+    try:
+        line = _make_line(db, "loose_furniture", factory_work_cny=1.0, item_code="F3")
         service.recompute_estimate_line(db, line)
         db.commit()
         assert line.material_cost_per_unit == 21.0
@@ -321,7 +337,6 @@ def test_wetworks_line_still_has_labor():
         service.recompute_estimate_line(db, line)
         db.commit()
         assert line.material_cost_per_unit == 20.0
-        # 2600/26/1 = $100/day crew; /10 coverage = $10; +15% Testland OH = $11.50
         assert abs(line.labor_cost_per_unit - 11.5) < 1e-6
     finally:
         db.close()
@@ -335,27 +350,35 @@ def _sheet_rows(buf):
     return rows[0], rows[1:]
 
 
-def _built_line(db, project_type, *, with_coverage=False, factory_work=7.0, item_code="X1"):
-    line = _make_line(db, project_type, with_coverage=with_coverage,
-                      factory_work=factory_work if project_type != "wetworks" else None,
-                      item_code=item_code)
+def _built_line(db, project_type, *, with_coverage=False, item_code="X1", project_code="PJ", ohp_pct=0.0):
+    line = _make_line(db, project_type, with_coverage=with_coverage, item_code=item_code,
+                      project_code=project_code, ohp_pct=ohp_pct,
+                      factory_work_cny=7.0 if project_type != "wetworks" else None)
     service.recompute_estimate_line(db, line)
     db.commit()
     return line
 
 
-def test_sale_estimation_furniture_type_blank_labor_and_factory_work_row():
+def test_sale_estimation_furniture_qualified_names_ohp_and_blank_labor():
     db = SessionLocal()
     try:
-        line = _built_line(db, "loose_furniture", with_coverage=True)
+        line = _built_line(db, "loose_furniture", with_coverage=True, ohp_pct=0.08)
         header, data = _sheet_rows(export_excel.build_sale_estimation_workbook(db, line.project))
         assert data[0][header.index("estimation_type_id")] == "Loose Furniture"
-        labor_col = header.index("estimation_line_ids/labor_cost")
-        assert all(r[labor_col] in (None, "") for r in data)
+        assert all(r[header.index("estimation_line_ids/labor_cost")] in (None, "") for r in data)
+        # OHP handed to Odoo as a line-level percentage
+        ohp = [r[header.index("estimation_line_ids/overhead_cost_percentage")] for r in data
+               if r[header.index("estimation_line_ids/overhead_cost_percentage")] not in (None, "")]
+        assert ohp == [0.08]
+        # names qualified with project code + item code
+        comp = line.components[0]
+        pid_col = header.index("estimation_line_ids/product_id")
         comp_col = header.index(
             "estimation_line_ids/sale_estimation_component_product_line_ids/product_id")
+        assert data[0][pid_col] == f"{line.product.name} PJ {line.item_code}"
         names = [r[comp_col] for r in data if r[comp_col]]
-        assert f"Factory Work for {line.product.name} {line.item_code}" in names
+        assert f"{comp.support_item.name} PJ {comp.item_code}" in names
+        assert f"Factory Work for {line.product.name} PJ {line.item_code}" in names
     finally:
         db.close()
 
@@ -373,16 +396,17 @@ def test_sale_estimation_wetworks_type_and_labor_present():
         db.close()
 
 
-def test_bom_export_furniture_has_components_and_factory_work():
+def test_bom_export_furniture_qualified_names_and_factory_work():
     db = SessionLocal()
     try:
         line = _built_line(db, "fixed_furniture")
         bom_header, bom_data = _sheet_rows(export_excel.build_bom_workbook(db, line.project))
-        assert bom_data[0][bom_header.index("product")] == line.product.name
-        fw_name = f"Factory Work for {line.product.name} {line.item_code}"
-        comp_names = [r[bom_header.index("bom_line_ids/product_id")] for r in bom_data]
-        assert line.components[0].support_item.name in comp_names
-        assert fw_name in comp_names
+        comp = line.components[0]
+        assert bom_data[0][bom_header.index("product")] == f"{line.product.name} PJ {line.item_code}"
+        fw_name = f"Factory Work for {line.product.name} PJ {line.item_code}"
+        names = [r[bom_header.index("bom_line_ids/product_id")] for r in bom_data]
+        assert f"{comp.support_item.name} PJ {comp.item_code}" in names
+        assert fw_name in names
         fw_qty = [r[bom_header.index("bom_line_ids/product_qty")] for r in bom_data
                   if r[bom_header.index("bom_line_ids/product_id")] == fw_name]
         assert fw_qty == [1]
@@ -402,82 +426,75 @@ def test_product_import_furniture_manufacture_and_factory_work_buy_row():
         line.product.purchasing_company_id = pc.id
         db.commit()
         books = dict(export_excel.build_product_import_workbooks(db, line.project))
-        assert "SC ftest" in books
         _, sc_rows = _sheet_rows(books["SC ftest"])
         by_name = {r[1]: r for r in sc_rows}
-        assert by_name[line.product.name][4].startswith("Manufacture")     # route_ids
-        fw = by_name[f"Factory Work for {line.product.name} {line.item_code}"]
+        assert by_name[f"{line.product.name} PJ {line.item_code}"][4].startswith("Manufacture")
+        comp = line.components[0]
+        comp_row = by_name[f"{comp.support_item.name} PJ {comp.item_code}"]
+        assert comp_row[4].startswith("Buy") and comp_row[8] == round(comp.unit_cost, 4)
+        fw = by_name[f"Factory Work for {line.product.name} PJ {line.item_code}"]
         assert fw[4].startswith("Buy") and fw[7] == "Storable Product" and fw[8] in (None, "")
     finally:
         db.close()
 
 
-def test_factory_work_name_carries_item_code_for_repeated_products():
-    db = SessionLocal()
-    try:
-        # one product ("Sofa"), two line items with different item codes
-        line = _make_line(db, "loose_furniture", factory_work=10.0, item_code="SOFA-A")
-        service.recompute_estimate_line(db, line)
-        db.flush()
-        loc = line.location
-        si = line.components[0].support_item
-        l2 = models.EstimateLine(project_id=line.project_id, location_id=loc.id,
-                                 product_id=line.product_id, qty=1.0,
-                                 item_code="SOFA-B", factory_work_cost=10.0)
-        db.add(l2)
-        db.flush()
-        db.add(models.EstimateLineComponent(estimate_line_id=l2.id, support_item_id=si.id,
-                                            qty_per_unit=1.0, role="primary",
-                                            qty=0.0, unit_cost=0.0, total_cost=0.0))
-        db.flush()
-        service.recompute_estimate_line(db, l2)
-        db.commit()
-        _, bom = _sheet_rows(export_excel.build_bom_workbook(db, line.project))
-        names = {r[4] for r in bom if r[4]}
-        assert f"Factory Work for {line.product.name} SOFA-A" in names
-        assert f"Factory Work for {line.product.name} SOFA-B" in names
-    finally:
-        db.close()
+def _furniture_project(client, h, cid):
+    prod = client.post("/api/products", headers=h, json={
+        "name": "F chair", "uom": "Pcs", "category": "Seating",
+        "product_type": "loose_furniture"}).json()
+    si = client.post("/api/support-items", headers=h, json={
+        "name": "F fabric", "uom": "m", "purchase_category": "Fabric"}).json()["id"]
+    pid = client.post("/api/projects", headers=h, json={
+        "name": "F proj", "country_id": cid, "project_type": "loose_furniture", "code": "FP"}).json()["id"]
+    loc = client.post(f"/api/projects/{pid}/locations", headers=h, json={"name": "L"}).json()["id"]
+    return prod["id"], si, pid, loc
 
 
-def test_furniture_line_needs_unique_item_code(client):
+def test_furniture_component_requires_code_and_price(client):
+    token = _login(client, "alice", "alicepass")
+    h = _auth(token)
+    prod, si, pid, loc = _furniture_project(client, h, _country_id(client, token))
+    ln = client.post(f"/api/projects/{pid}/estimate-lines", headers=h,
+                     json={"location_id": loc, "product_id": prod, "qty": 2}).json()["id"]
+    # missing item_code -> 422 (schema)
+    assert client.post(f"/api/estimate-lines/{ln}/components", headers=h,
+                       json={"support_item_id": si, "qty_per_unit": 3, "unit_price_cny": 50}).status_code == 422
+    # price <= 0 -> 422
+    assert client.post(f"/api/estimate-lines/{ln}/components", headers=h,
+                       json={"support_item_id": si, "qty_per_unit": 3, "unit_price_cny": 0,
+                             "item_code": "FAB-1"}).status_code == 422
+    # good -> 200
+    r = client.post(f"/api/estimate-lines/{ln}/components", headers=h,
+                    json={"support_item_id": si, "qty_per_unit": 3, "unit_price_cny": 50, "item_code": "FAB-1"})
+    assert r.status_code == 200, r.text
+    assert r.json()["unit_price_cny"] == 50
+
+
+def test_furniture_component_code_unique_per_project(client):
+    token = _login(client, "alice", "alicepass")
+    h = _auth(token)
+    prod, si, pid, loc = _furniture_project(client, h, _country_id(client, token))
+    si2 = client.post("/api/support-items", headers=h, json={
+        "name": "F stone", "uom": "Sqm", "purchase_category": "Stone"}).json()["id"]
+    l1 = client.post(f"/api/projects/{pid}/estimate-lines", headers=h,
+                     json={"location_id": loc, "product_id": prod, "qty": 1}).json()["id"]
+    client.post(f"/api/estimate-lines/{l1}/components", headers=h,
+                json={"support_item_id": si, "qty_per_unit": 1, "unit_price_cny": 10, "item_code": "DUP"})
+    l2 = client.post(f"/api/projects/{pid}/estimate-lines", headers=h,
+                     json={"location_id": loc, "product_id": prod, "qty": 1}).json()["id"]
+    r = client.post(f"/api/estimate-lines/{l2}/components", headers=h,
+                    json={"support_item_id": si2, "qty_per_unit": 1, "unit_price_cny": 10, "item_code": "dup"})
+    assert r.status_code == 422 and "already used" in r.json()["detail"]
+
+
+def test_new_furniture_project_snapshots_cny_rate(client):
     token = _login(client, "alice", "alicepass")
     h = _auth(token)
     cid = _country_id(client, token)
-    # a furniture product with a priced support item
-    prod = client.post("/api/products", headers=h, json={
-        "name": "ICtest chair", "uom": "Pcs", "category": "Seating",
-        "product_type": "loose_furniture"}).json()
-    si = client.post("/api/products/{}/bom-lines".format(prod["id"]), headers=h, json={
-        "new_support_item_name": "ICtest fabric", "new_support_item_uom": "m",
-        "qty_per_unit": 1, "role": "primary"}).json()["support_item_id"]
-    # (the bom-line above just creates the support item; furniture ignores the recipe)
-    client.put(f"/api/countries/{cid}/material-prices", headers=h,
-               json={"support_item_id": si, "unit_price_local": 20})
-    pid = client.post("/api/projects", headers=h, json={
-        "name": "IC proj", "country_id": cid, "project_type": "loose_furniture"}).json()["id"]
-    loc = client.post(f"/api/projects/{pid}/locations", headers=h, json={"name": "L"}).json()["id"]
-    l1 = client.post(f"/api/projects/{pid}/estimate-lines", headers=h,
-                     json={"location_id": loc, "product_id": prod["id"], "qty": 2}).json()["id"]
-    client.post(f"/api/estimate-lines/{l1}/components", headers=h,
-                json={"support_item_id": si, "qty_per_unit": 3, "role": "primary"})
-    # line now has a component but no item code -> save must fail
-    r = client.put(f"/api/estimate-lines/{l1}", headers=h,
-                   json={"location_id": loc, "product_id": prod["id"], "qty": 2})
-    assert r.status_code == 422
-    # give it a code -> ok
-    r = client.put(f"/api/estimate-lines/{l1}", headers=h, json={
-        "location_id": loc, "product_id": prod["id"], "qty": 2,
-        "item_code": "CH-1", "factory_work_cost": 40})
-    assert r.status_code == 200, r.text
-    # a second line reusing the same code -> fail
-    l2 = client.post(f"/api/projects/{pid}/estimate-lines", headers=h,
-                     json={"location_id": loc, "product_id": prod["id"], "qty": 1}).json()["id"]
-    client.post(f"/api/estimate-lines/{l2}/components", headers=h,
-                json={"support_item_id": si, "qty_per_unit": 1, "role": "primary"})
-    r = client.put(f"/api/estimate-lines/{l2}", headers=h, json={
-        "location_id": loc, "product_id": prod["id"], "qty": 1, "item_code": "ch-1"})
-    assert r.status_code == 422
-    # export is blocked while l2 has no code / factory work
-    r = client.get(f"/api/projects/{pid}/export/bom", headers=h)
-    assert r.status_code == 422 and "Factory Work" in r.json()["detail"]
+    r = client.post("/api/projects", headers=h, json={
+        "name": "fx proj", "country_id": cid, "project_type": "loose_furniture"})
+    assert r.status_code == 200
+    assert r.json()["cny_per_usd"] == 7.2
+    ww = client.post("/api/projects", headers=h, json={
+        "name": "ww fx", "country_id": cid, "start_date": "2026-01-01", "end_date": "2026-02-01"})
+    assert ww.json()["cny_per_usd"] is None

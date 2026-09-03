@@ -30,9 +30,9 @@ docker compose up --build
 
 The first boot seeds the database with the full catalog -- 283 products (76
 Wetworks, 166 Loose Furniture, 41 Fixed Furniture), 87 support items, 28
-vendors -- and a **Saudi Arabia (KSA)** country profile. The Wetworks side is
-priced from the sample workbooks; furniture support items still need per-country
-prices (Admin -> Country). Subsequent restarts never re-seed or wipe data (see
+vendors -- and a **Saudi Arabia (KSA)** country profile. Wetworks is priced from
+the sample workbooks; furniture prices are entered per component on each
+estimate (in CNY). Subsequent restarts never re-seed or wipe data (see
 `backend/entrypoint.sh`).
 
 By default data is stored in SQLite inside a Docker volume (`backend_data`).
@@ -115,26 +115,38 @@ estimates to round up to whole packs, that's a straightforward addition to
 
 ### Furniture BOM (loose / fixed furniture)
 
-Furniture products carry **no fixed recipe** -- component quantities vary by
-project. On each furniture estimate line the estimator adds components from the
-support-item catalog (filtered to `purchase_category` in **Fabric / Stone /
-Metal / Accessories**) and types the `qty_per_unit` for that project. Recompute
-only re-prices those rows against current country prices -- it never adds or
-removes them.
+Furniture products carry **no fixed recipe** -- component quantities *and prices*
+vary by project. On each furniture estimate line the estimator adds components
+from the support-item catalog (filtered to `purchase_category` in **Fabric /
+Stone / Metal / Accessories**) and types, per component: the `qty_per_unit`, the
+purchase **price in CNY** (furniture is China-sourced), and a **project-unique
+item code**. Recompute only re-prices those rows -- it never adds or removes
+them.
 
 Every furniture line that has components also carries a **Factory Work** charge
--- a per-project assembly/labour price, quantity always 1, entered on the line.
+-- a per-project assembly price in CNY, quantity always 1, entered on the line.
 It's folded into `material_cost_per_unit` and appears in all three exports as a
-`Factory Work for <product> <item_code>` component row. Such lines require a
-**project-unique item code** (the standalone BOM export is keyed by it); the app
-refuses to export until every furniture line with a BOM has both.
+`Factory Work for <product>` component row.
 
 ```
-material_cost_per_unit = factory_work_cost
-    + sum over components of:
-        qty_per_unit * unit_price(support_item, country)
-            * (1 + consumable_pct + ohp_pct if role == "primary" else 1)
+component_usd = qty_per_unit * unit_price_cny / project.cny_per_usd
+material_cost_per_unit =
+    (sum of component_usd + factory_work_cost_cny / project.cny_per_usd)
+    * (1 + product OHP %)
 ```
+
+**Consumable %** does not apply to furniture; **OHP %** is applied to the line
+total (components + Factory Work), and the Sale Estimation export hands it to
+Odoo as `overhead_cost_percentage` rather than baking it into prices.
+`project.cny_per_usd` defaults to 7.2 and is editable per project (Edit project
+code / … / CNY rate) so a saved estimate doesn't move when the rate does.
+
+In all three exports the finished-product and component names are qualified as
+`<name> <project code> <item code>` so two line items of the same product, or a
+support item re-priced on another line, stay distinct Odoo records. Every
+furniture line with a BOM needs its own project-unique item code, a Factory Work
+cost, and every component priced with a project-unique code -- the app refuses to
+export until they're all set.
 
 ### Labor cost (wetworks only)
 
@@ -180,21 +192,21 @@ addable to an estimate, but $0 until an admin fills in a BOM and coverage rate.
 
 **Furniture:** 166 Loose + 41 Fixed Furniture products, loaded from
 `Product Master NEW.xlsx` via `backend/import_catalog.py`. They have no recipe
-to configure (the BOM is per estimate line), so they're never "needs setup" --
-but their 22 support items have **no KSA prices yet**, so a furniture line's
-components read $0 until an admin sets per-country prices.
+and no per-product setup -- the BOM (and every component's price, in CNY) is
+entered per estimate line -- so they're never "needs setup".
 
 ## Adding a country
 
 Admin → Countries → **+ Add a country** creates an empty template (flagged
-"needs data"). For **Wetworks** projects, open it to fill in currencies/FX
-rates, working days/month, wages overhead %, salaries, and per-worker expenses
--- the same fields the KSA sample workbook has. **Material prices** (used by
-every project type) are set per support item -- from a product's page
+"needs data"). Only **Wetworks** projects use a country's rate card -- open it
+to fill in currencies/FX rates, working days/month, wages overhead %, salaries,
+and per-worker expenses (the fields the KSA sample workbook has). Wetworks
+material prices are set per support item -- from a product's page
 (Products → a product → **Material prices**, country selector), or in bulk via
-`import_catalog.py --country <CODE>` if the client sends a priced sheet.
-Wetworks BOM recipes and coverage rates are shared across countries by design;
-a future country needing a different recipe is a schema change to discuss.
+`import_catalog.py --country <CODE>`. Wetworks BOM recipes and coverage rates
+are shared across countries by design; a future country needing a different
+recipe is a schema change to discuss. Furniture ignores the country entirely
+except as a label -- its prices come from the estimator, in CNY, per line.
 
 ## Configuring a "needs setup" product (Wetworks)
 
@@ -246,13 +258,14 @@ docker-compose.yml
 
 ## Known limitations / good next steps
 
-- **Furniture support items have no KSA prices** -- a furniture line's
-  components read $0 until an admin sets per-country prices. Send a priced
-  sheet and `import_catalog.py --country KSA` loads them in bulk.
 - The furniture `estimation_type_id` strings on the Sale Estimation export
   (`Loose Furniture` / `Fixed Furniture`) are **provisional** -- confirm the
   real values in your Odoo and change them in `backend/app/project_types.py`
-  (marked `TODO`).
+  (marked `TODO`). Same for whether Odoo wants `overhead_cost_percentage` as a
+  decimal (`0.08`) or a whole number.
+- Furniture prices are entered in CNY and converted with a per-project rate
+  that defaults to **7.2** (`project_types.DEFAULT_CNY_PER_USD`) -- update the
+  default when it drifts, or override per project.
 - Whether furniture door hardware (hinges, locks, handles) is best classified
   `Metal` vs `Accessories` is a judgement call the importer made -- reclassify
   from the support-items admin screen if needed.
