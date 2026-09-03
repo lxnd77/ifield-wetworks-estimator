@@ -247,6 +247,12 @@ class Project(Base):
     end_date = Column(Date, nullable=True)
     default_margin_pct = Column(Float, nullable=False, default=0.0)
     display_currency = Column(String, nullable=False, default="USD")
+    # Furniture only: CNY per 1 USD. Furniture component prices and the
+    # Factory Work charge are entered in Chinese yuan (the products are
+    # China-sourced) and divided by this to get USD. Snapshotted from
+    # project_types.DEFAULT_CNY_PER_USD at creation, editable per project so a
+    # saved estimate doesn't move when the live rate does. Unused for wetworks.
+    cny_per_usd = Column(Float, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -301,10 +307,11 @@ class EstimateLine(Base):
     item_code = Column(String, nullable=True)
 
     # Furniture only: the per-project "Factory Work for <product>" charge that
-    # every furniture line with a BOM must carry (qty is always 1). Folded
-    # into material_cost_per_unit; emitted as a qty-1 component row in all
-    # three exports. Null / unused for wetworks.
-    factory_work_cost = Column(Float, nullable=True)
+    # every furniture line with a BOM must carry (qty is always 1), entered in
+    # CNY. Converted to USD (via Project.cny_per_usd), folded into
+    # material_cost_per_unit, and emitted as a qty-1 component row in all three
+    # exports. Null / unused for wetworks.
+    factory_work_cost_cny = Column(Float, nullable=True)
 
     # computed / cached at save time (per unit, in USD)
     material_cost_per_unit = Column(Float, default=0.0)
@@ -331,8 +338,8 @@ class EstimateLineComponent(Base):
 
     For FURNITURE lines these rows are *user-authored* -- the estimator picks
     each support item (Fabric / Stone / Metal / Accessories) and enters
-    `qty_per_unit` for this project; recompute only re-prices them against
-    current country rates, never adds or removes them.
+    `qty_per_unit`, `unit_price_cny`, and a project-unique `item_code` for this
+    project; recompute only re-prices them, never adds or removes them.
     """
     __tablename__ = "estimate_line_components"
 
@@ -342,12 +349,12 @@ class EstimateLineComponent(Base):
     # Furniture: user-entered consumption per 1 unit of the product. Wetworks:
     # null (the recipe drives it; only the rounded total `qty` is stored).
     qty_per_unit = Column(Float, nullable=True)
+    # Furniture: user-entered purchase price in CNY. Wetworks: null (priced
+    # from CountryMaterialPrice).
+    unit_price_cny = Column(Float, nullable=True)
     qty = Column(Float, nullable=False)  # total qty for the line's full estimate qty
     unit_cost = Column(Float, nullable=False)  # USD per uom of the support item
     total_cost = Column(Float, nullable=False)
-    # 'primary' or 'fixing' -- the product's consumable%/OHP% markup loads onto
-    # 'primary' rows only, same rule as BomLine.role.
-    role = Column(String, nullable=False, default="fixing", server_default="fixing")
     # User-entered during estimation; preserved across recompute_estimate_line
     # (which upserts by support_item_id rather than delete/recreate) so it
     # survives rate/BOM changes that trigger a recompute.

@@ -270,6 +270,7 @@ class ProjectOut(BaseModel):
     end_date: Optional[date] = None
     default_margin_pct: float
     display_currency: str
+    cny_per_usd: Optional[float] = None
     notes: Optional[str] = None
     created_at: datetime
     locations: List[ProjectLocationOut] = []
@@ -288,6 +289,7 @@ class ProjectIn(BaseModel):
     end_date: Optional[date] = None
     default_margin_pct: float = 0.0
     display_currency: str = "USD"
+    cny_per_usd: Optional[float] = None
     notes: Optional[str] = None
 
 
@@ -297,10 +299,10 @@ class EstimateLineComponentOut(BaseModel):
     support_item_id: int
     support_item: SupportItemOut
     qty_per_unit: Optional[float] = None
+    unit_price_cny: Optional[float] = None
     qty: float
     unit_cost: float
     total_cost: float
-    role: str = "fixing"
     item_code: Optional[str] = None
 
 
@@ -309,11 +311,13 @@ class EstimateLineComponentCodeIn(BaseModel):
 
 
 class EstimateLineComponentIn(BaseModel):
-    """Add / edit a user-authored component on a furniture estimate line."""
+    """Add / edit a user-authored component on a furniture estimate line.
+    item_code and unit_price_cny (Chinese yuan, > 0) are both required; the
+    item code must be unique among the project's furniture components."""
     support_item_id: int
     qty_per_unit: float
-    role: str = "fixing"
-    item_code: Optional[str] = None
+    unit_price_cny: float
+    item_code: str
 
 
 class EstimateLineOut(BaseModel):
@@ -330,7 +334,7 @@ class EstimateLineOut(BaseModel):
     description: Optional[str] = None
     dimension: Optional[str] = None
     item_code: Optional[str] = None
-    factory_work_cost: Optional[float] = None
+    factory_work_cost_cny: Optional[float] = None
     material_cost_per_unit: float
     labor_cost_per_unit: float
     wages_cost_per_unit: float
@@ -352,4 +356,4 @@ class EstimateLineIn(BaseModel):
     description: Optional[str] = None
     dimension: Optional[str] = None
     item_code: Optional[str] = None
-    factory_work_cost: Optional[float] = None
+    factory_work_cost_cny: Optional[float] = None

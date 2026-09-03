@@ -9,19 +9,17 @@ const isTemp = (id) => typeof id === "string";
 
 // Mirrors service.py::line_totals(). For wetworks the per-unit cost comes
 // from the cached per-product cost map, so qty/margin edits never need an
-// API round trip. For furniture the per-unit cost is per-line (it depends on
-// that line's own components) -- we take the last server-computed value and
-// only fold in a local Factory Work edit; component edits go through the API
-// and reload.
+// API round trip. For furniture the per-unit cost is per-line (components +
+// Factory Work + OHP, all CNY-converted server-side) -- we show the last
+// server-computed value; component and Factory-Work edits go through the API
+// / a Save and reload.
 function lineCosts(line, costMap, project, lineDataById = {}) {
   const margin = line.margin_pct_override ?? project.default_margin_pct ?? 0;
   const withMargin = (cost) => cost * (1 + margin / 100);
 
   if (bomPerLine(project.project_type)) {
-    const server = lineDataById[line.id] || { material_cost_per_unit: 0, factory_work_cost: 0 };
-    const serverFw = server.factory_work_cost || 0;
-    const draftFw = line.factory_work_cost || 0;
-    const materialPerUnit = (server.material_cost_per_unit || 0) - serverFw + draftFw;
+    const server = lineDataById[line.id] || { material_cost_per_unit: 0 };
+    const materialPerUnit = server.material_cost_per_unit || 0;
     const materialTotal = materialPerUnit * line.qty;
     return {
       materialPerUnit, laborPerUnit: 0,
@@ -56,7 +54,7 @@ const lineFields = (l) => ({
   description: l.description || "",
   dimension: l.dimension || "",
   item_code: l.item_code || "",
-  factory_work_cost: l.factory_work_cost ?? null,
+  factory_work_cost_cny: l.factory_work_cost_cny ?? null,
 });
 const locFields = (l) => ({ name: l.name });
 
@@ -96,7 +94,7 @@ export default function ProjectDetail() {
         id: l.id, location_id: l.location_id, product_id: l.product_id, qty: l.qty,
         margin_pct_override: l.margin_pct_override, drawing_no: l.drawing_no, remark: l.remark,
         description: l.description, dimension: l.dimension, item_code: l.item_code,
-        factory_work_cost: l.factory_work_cost,
+        factory_work_cost_cny: l.factory_work_cost_cny,
       }));
       setSavedLocations(locs);
       setSavedLines(lines);
@@ -221,27 +219,30 @@ export default function ProjectDetail() {
 
   // Furniture component edits hit the API immediately (they're not part of
   // the line draft) and then reload so per-line costs refresh.
-  const addComponent = async (lineId, payload) => {
-    await api.post(`/estimate-lines/${lineId}/components`, payload);
-    load();
+  const componentCall = async (fn) => {
+    setError("");
+    try {
+      await fn();
+      load();
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Could not save the component.");
+    }
   };
-  const updateComponent = async (componentId, payload) => {
-    await api.put(`/estimate-line-components/${componentId}`, payload);
-    load();
-  };
-  const deleteComponent = async (componentId) => {
-    await api.delete(`/estimate-line-components/${componentId}`);
-    load();
-  };
+  const addComponent = (lineId, payload) =>
+    componentCall(() => api.post(`/estimate-lines/${lineId}/components`, payload));
+  const updateComponent = (componentId, payload) =>
+    componentCall(() => api.put(`/estimate-line-components/${componentId}`, payload));
+  const deleteComponent = (componentId) =>
+    componentCall(() => api.delete(`/estimate-line-components/${componentId}`));
 
   const saveProjectMeta = async (patch) => {
     const payload = {
       name: project.name, code: project.code, country_id: project.country_id,
       selling_company_id: project.selling_company_id, client_name: project.client_name,
       address: project.address, estimator_name: project.estimator_name,
-      start_date: project.start_date, end_date: project.end_date,
+      start_date: project.start_date, end_date: project.end_date, project_type: project.project_type,
       default_margin_pct: project.default_margin_pct, display_currency: project.display_currency,
-      notes: project.notes, ...patch,
+      cny_per_usd: project.cny_per_usd, notes: project.notes, ...patch,
     };
     const res = await api.put(`/projects/${id}`, payload);
     setProject(res.data);
@@ -384,20 +385,23 @@ function AddLocationForm({ onAdd }) {
 }
 
 function ProjectMetaEditor({ project, sellingCompanies, onSave }) {
+  const furniture = bomPerLine(project.project_type);
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState(project.code || "");
   const [sellingCompanyId, setSellingCompanyId] = useState(project.selling_company_id || "");
+  const [cny, setCny] = useState(project.cny_per_usd ?? "");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setCode(project.code || "");
     setSellingCompanyId(project.selling_company_id || "");
-  }, [project.id, project.code, project.selling_company_id]);
+    setCny(project.cny_per_usd ?? "");
+  }, [project.id, project.code, project.selling_company_id, project.cny_per_usd]);
 
   if (!open) {
     return (
       <button onClick={() => setOpen(true)} className="text-xs text-ruby hover:underline mt-2">
-        Edit project code / selling company
+        Edit project code / selling company{furniture ? " / CNY rate" : ""}
       </button>
     );
   }
@@ -406,7 +410,9 @@ function ProjectMetaEditor({ project, sellingCompanies, onSave }) {
     e.preventDefault();
     setSaving(true);
     try {
-      await onSave({ code: code || null, selling_company_id: sellingCompanyId ? Number(sellingCompanyId) : null });
+      const patch = { code: code || null, selling_company_id: sellingCompanyId ? Number(sellingCompanyId) : null };
+      if (furniture) patch.cny_per_usd = cny === "" ? null : Number(cny);
+      await onSave(patch);
       setOpen(false);
     } finally {
       setSaving(false);
@@ -428,6 +434,12 @@ function ProjectMetaEditor({ project, sellingCompanies, onSave }) {
           ))}
         </select>
       </div>
+      {furniture && (
+        <div>
+          <label className="text-xs text-ink/60">CNY per USD</label>
+          <input type="number" step="0.01" value={cny} onChange={(e) => setCny(e.target.value)} placeholder="7.20" className="w-24 border rounded-md px-2 py-1.5 text-sm" />
+        </div>
+      )}
       <button disabled={saving} className="text-sm px-3 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
         {saving ? "Saving..." : "Save"}
       </button>
@@ -493,7 +505,7 @@ function LocationBlock({ location, lines, products, supportItems, showLabor, cos
               const c = lineCosts(l, costMap, project, lineDataById);
               const components = componentsByLineId[l.id] || [];
               const isTempLine = typeof l.id === "string";
-              const fwMissing = furniture && components.length > 0 && !(l.factory_work_cost > 0);
+              const fwMissing = furniture && components.length > 0 && !(l.factory_work_cost_cny > 0);
               const bomMissing = furniture && !isTempLine && components.length === 0;
               return editingId === l.id ? (
                 <tr key={l.id} className="border-b last:border-0">
@@ -564,6 +576,7 @@ function LocationBlock({ location, lines, products, supportItems, showLabor, cos
                             product={product}
                             components={components}
                             supportItems={supportItems}
+                            cnyPerUsd={project.cny_per_usd || 7.2}
                             onAdd={(payload) => onAddComponent(l.id, payload)}
                             onUpdate={onUpdateComponent}
                             onDelete={onDeleteComponent}
@@ -604,17 +617,20 @@ function LocationBlock({ location, lines, products, supportItems, showLabor, cos
   );
 }
 
-function FurnitureBomEditor({ line, product, components, supportItems, onAdd, onUpdate, onDelete }) {
+function FurnitureBomEditor({ line, product, components, supportItems, cnyPerUsd, onAdd, onUpdate, onDelete }) {
   const [adding, setAdding] = useState(false);
   // Only the four furniture BOM categories -- wetworks recipe components
   // (Gypsum board, tile, ...) don't belong on a furniture line.
   const pickable = supportItems.filter((s) => FURNITURE_BOM_CATEGORIES.includes(s.purchase_category));
+  const usedCodes = components.map((c) => (c.item_code || "").toLowerCase());
+  const fwCny = line.factory_work_cost_cny || 0;
 
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-2">
         <div className="text-xs font-medium text-ink/60">
-          BOM for this line -- quantities are per one {product?.uom || "unit"} of {product?.name || "the product"}.
+          BOM for this line -- quantities per one {product?.uom || "unit"} of {product?.name || "the product"},
+          prices in CNY (¥{num(cnyPerUsd, 2)} / $).
         </div>
         <button onClick={() => setAdding(true)} className="text-xs px-2 py-1 rounded border bg-white hover:bg-slate-100">
           + Component
@@ -624,35 +640,36 @@ function FurnitureBomEditor({ line, product, components, supportItems, onAdd, on
         <thead>
           <tr className="text-left text-ink/40 border-b">
             <th className="py-1 font-normal">Support item</th>
-            <th className="py-1 font-normal">Type</th>
+            <th className="py-1 font-normal">Item code</th>
             <th className="py-1 font-normal text-right">Qty / unit</th>
-            <th className="py-1 font-normal">Role</th>
-            <th className="py-1 font-normal text-right">Unit $</th>
-            <th className="py-1 font-normal text-right">Line total</th>
+            <th className="py-1 font-normal text-right">Price ¥</th>
+            <th className="py-1 font-normal text-right">Line total $</th>
             <th className="py-1"></th>
           </tr>
         </thead>
         <tbody>
           {components.map((c) => (
-            <FurnitureBomRow key={c.id} component={c}
-              onSave={(patch) => onUpdate(c.id, { support_item_id: c.support_item_id, qty_per_unit: c.qty_per_unit, role: c.role, item_code: c.item_code, ...patch })}
+            <FurnitureBomRow key={c.id} component={c} usedCodes={usedCodes}
+              onSave={(patch) => onUpdate(c.id, {
+                support_item_id: c.support_item_id, qty_per_unit: c.qty_per_unit,
+                unit_price_cny: c.unit_price_cny, item_code: c.item_code, ...patch,
+              })}
               onDelete={() => onDelete(c.id)} />
           ))}
           <tr className="border-b last:border-0 text-ink/60">
             <td className="py-1.5">Factory Work for {product?.name}{line.item_code ? ` ${line.item_code}` : ""}</td>
-            <td className="py-1.5">Factory Work</td>
+            <td className="py-1.5 text-ink/40">{line.item_code || "--"}</td>
             <td className="py-1.5 text-right">1</td>
-            <td className="py-1.5">--</td>
             <td className="py-1.5 text-right">
-              {line.factory_work_cost > 0
-                ? money(line.factory_work_cost)
-                : <span className="text-amber-600">set in line editor</span>}
+              {fwCny > 0 ? `¥${num(fwCny, 2)}` : <span className="text-amber-600">set in line editor</span>}
             </td>
-            <td className="py-1.5 text-right">{line.factory_work_cost > 0 ? money(line.factory_work_cost * line.qty) : "--"}</td>
+            <td className="py-1.5 text-right">
+              {fwCny > 0 ? money((fwCny / cnyPerUsd) * line.qty) : "--"}
+            </td>
             <td></td>
           </tr>
           {components.length === 0 && (
-            <tr><td colSpan={7} className="py-2 text-ink/30">No components yet.</td></tr>
+            <tr><td colSpan={6} className="py-2 text-ink/30">No components yet.</td></tr>
           )}
         </tbody>
       </table>
@@ -660,6 +677,7 @@ function FurnitureBomEditor({ line, product, components, supportItems, onAdd, on
         <AddComponentForm
           supportItems={pickable}
           existing={components.map((c) => c.support_item_id)}
+          usedCodes={usedCodes}
           onCancel={() => setAdding(false)}
           onSubmit={(payload) => { onAdd(payload); setAdding(false); }}
         />
@@ -668,30 +686,44 @@ function FurnitureBomEditor({ line, product, components, supportItems, onAdd, on
   );
 }
 
-function FurnitureBomRow({ component, onSave, onDelete }) {
+function FurnitureBomRow({ component, usedCodes, onSave, onDelete }) {
   const [qty, setQty] = useState(component.qty_per_unit ?? "");
-  const [role, setRole] = useState(component.role || "fixing");
-  useEffect(() => { setQty(component.qty_per_unit ?? ""); setRole(component.role || "fixing"); }, [component.qty_per_unit, component.role]);
+  const [price, setPrice] = useState(component.unit_price_cny ?? "");
+  const [code, setCode] = useState(component.item_code || "");
+  useEffect(() => {
+    setQty(component.qty_per_unit ?? "");
+    setPrice(component.unit_price_cny ?? "");
+    setCode(component.item_code || "");
+  }, [component.qty_per_unit, component.unit_price_cny, component.item_code]);
+
+  const codeClash = code && code.toLowerCase() !== (component.item_code || "").toLowerCase()
+    && usedCodes.includes(code.toLowerCase());
+
   return (
     <tr className="border-b last:border-0">
-      <td className="py-1.5">{component.support_item.name}</td>
-      <td className="py-1.5 text-ink/50">{component.support_item.purchase_category || "--"}</td>
+      <td className="py-1.5">
+        {component.support_item.name}
+        <span className="text-ink/40"> · {component.support_item.purchase_category || "--"}</span>
+      </td>
+      <td className="py-1.5">
+        <input value={code} onChange={(e) => setCode(e.target.value)}
+          onBlur={() => code.trim() && !codeClash && code !== (component.item_code || "") && onSave({ item_code: code.trim() })}
+          placeholder="e.g. FAB-01"
+          className={`w-24 border rounded px-1.5 py-1 text-xs ${codeClash ? "border-red-400" : ""}`} />
+      </td>
       <td className="py-1.5 text-right">
         <input type="number" step="0.0001" value={qty}
           onChange={(e) => setQty(e.target.value)}
-          onBlur={() => Number(qty) !== component.qty_per_unit && qty !== "" && onSave({ qty_per_unit: Number(qty) })}
-          className="w-20 border rounded px-1.5 py-1 text-xs text-right" />
+          onBlur={() => qty !== "" && Number(qty) !== component.qty_per_unit && onSave({ qty_per_unit: Number(qty) })}
+          className="w-16 border rounded px-1.5 py-1 text-xs text-right" />
         {" "}{component.support_item.uom}
       </td>
-      <td className="py-1.5">
-        <select value={role}
-          onChange={(e) => { setRole(e.target.value); onSave({ role: e.target.value }); }}
-          className="border rounded px-1 py-1 text-xs">
-          <option value="primary">primary</option>
-          <option value="fixing">fixing</option>
-        </select>
+      <td className="py-1.5 text-right">
+        <input type="number" step="0.01" value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          onBlur={() => price !== "" && Number(price) > 0 && Number(price) !== component.unit_price_cny && onSave({ unit_price_cny: Number(price) })}
+          className="w-20 border rounded px-1.5 py-1 text-xs text-right" />
       </td>
-      <td className="py-1.5 text-right">{component.unit_cost > 0 ? money(component.unit_cost) : <span className="text-amber-600">no price</span>}</td>
       <td className="py-1.5 text-right">{money(component.total_cost)}</td>
       <td className="py-1.5 text-right">
         <button onClick={onDelete} className="text-red-500 hover:underline">remove</button>
@@ -700,17 +732,23 @@ function FurnitureBomRow({ component, onSave, onDelete }) {
   );
 }
 
-function AddComponentForm({ supportItems, existing, onCancel, onSubmit }) {
+function AddComponentForm({ supportItems, existing, usedCodes, onCancel, onSubmit }) {
   const [supportItemId, setSupportItemId] = useState("");
   const [qty, setQty] = useState("1");
-  const [role, setRole] = useState("fixing");
+  const [price, setPrice] = useState("");
+  const [code, setCode] = useState("");
   const [cat, setCat] = useState("");
   const options = supportItems.filter((s) => !existing.includes(s.id) && (!cat || s.purchase_category === cat));
+  const codeClash = code && usedCodes.includes(code.toLowerCase());
+  const valid = supportItemId && Number(qty) > 0 && Number(price) > 0 && code.trim() && !codeClash;
 
   const submit = (e) => {
     e.preventDefault();
-    if (!supportItemId || !qty) return;
-    onSubmit({ support_item_id: Number(supportItemId), qty_per_unit: Number(qty), role });
+    if (!valid) return;
+    onSubmit({
+      support_item_id: Number(supportItemId), qty_per_unit: Number(qty),
+      unit_price_cny: Number(price), item_code: code.trim(),
+    });
   };
   return (
     <form onSubmit={submit} className="mt-3 pt-3 border-t flex flex-wrap items-end gap-2">
@@ -721,7 +759,7 @@ function AddComponentForm({ supportItems, existing, onCancel, onSubmit }) {
           {FURNITURE_BOM_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
-      <div className="min-w-[200px]">
+      <div className="min-w-[180px]">
         <label className="text-[11px] text-ink/50">Support item</label>
         <select required value={supportItemId} onChange={(e) => setSupportItemId(e.target.value)} className="w-full border rounded px-1.5 py-1 text-xs">
           <option value="">Select...</option>
@@ -729,18 +767,21 @@ function AddComponentForm({ supportItems, existing, onCancel, onSubmit }) {
         </select>
       </div>
       <div>
-        <label className="text-[11px] text-ink/50">Qty / unit</label>
-        <input required type="number" step="0.0001" value={qty} onChange={(e) => setQty(e.target.value)} className="w-20 border rounded px-1.5 py-1 text-xs" />
+        <label className="text-[11px] text-ink/50">Item code</label>
+        <input required value={code} onChange={(e) => setCode(e.target.value)} placeholder="FAB-01"
+          className={`w-24 border rounded px-1.5 py-1 text-xs ${codeClash ? "border-red-400" : ""}`} />
       </div>
       <div>
-        <label className="text-[11px] text-ink/50">Role</label>
-        <select value={role} onChange={(e) => setRole(e.target.value)} className="border rounded px-1.5 py-1 text-xs">
-          <option value="primary">primary</option>
-          <option value="fixing">fixing</option>
-        </select>
+        <label className="text-[11px] text-ink/50">Qty / unit</label>
+        <input required type="number" step="0.0001" value={qty} onChange={(e) => setQty(e.target.value)} className="w-16 border rounded px-1.5 py-1 text-xs" />
       </div>
-      <button className="text-xs px-3 py-1.5 rounded bg-ruby text-white hover:bg-ruby-dark">Add</button>
+      <div>
+        <label className="text-[11px] text-ink/50">Price ¥</label>
+        <input required type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} className="w-20 border rounded px-1.5 py-1 text-xs" />
+      </div>
+      <button disabled={!valid} className="text-xs px-3 py-1.5 rounded bg-ruby text-white hover:bg-ruby-dark disabled:opacity-40">Add</button>
       <button type="button" onClick={onCancel} className="text-xs px-2 py-1.5 rounded border bg-white">Cancel</button>
+      {codeClash && <div className="w-full text-[11px] text-red-500">That item code is already used in this project.</div>}
     </form>
   );
 }
@@ -798,7 +839,7 @@ function LineItemForm({ products, showLabor = true, furniture = false, initial, 
   const [description, setDescription] = useState(initial?.description ?? "");
   const [dimension, setDimension] = useState(initial?.dimension ?? "");
   const [itemCode, setItemCode] = useState(initial?.item_code ?? "");
-  const [factoryWork, setFactoryWork] = useState(initial?.factory_work_cost ?? "");
+  const [factoryWork, setFactoryWork] = useState(initial?.factory_work_cost_cny ?? "");
   const [search, setSearch] = useState("");
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
@@ -816,7 +857,7 @@ function LineItemForm({ products, showLabor = true, furniture = false, initial, 
       description: description || null,
       dimension: dimension || null,
       item_code: itemCode || null,
-      factory_work_cost: furniture ? (factoryWork === "" ? null : Number(factoryWork)) : null,
+      factory_work_cost_cny: furniture ? (factoryWork === "" ? null : Number(factoryWork)) : null,
     });
   };
 
@@ -853,8 +894,8 @@ function LineItemForm({ products, showLabor = true, furniture = false, initial, 
       </div>
       {furniture && (
         <div>
-          <label className="text-xs text-ink/60">Factory Work $</label>
-          <input type="number" step="0.01" value={factoryWork} onChange={(e) => setFactoryWork(e.target.value)} placeholder="per unit" className="w-24 border rounded-md px-2 py-1.5 text-sm" />
+          <label className="text-xs text-ink/60">Factory Work ¥</label>
+          <input type="number" step="0.01" value={factoryWork} onChange={(e) => setFactoryWork(e.target.value)} placeholder="per unit, CNY" className="w-24 border rounded-md px-2 py-1.5 text-sm" />
         </div>
       )}
       <div>

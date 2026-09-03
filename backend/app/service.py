@@ -12,11 +12,11 @@ def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.Es
     project = line.project
     product = line.product
     country = project.country
-    price_lookup = price_lookup_factory(db, country.id)
 
     if project_types.bom_per_line(project.project_type):
-        return _recompute_furniture_line(line, price_lookup)
+        return _recompute_furniture_line(line)
 
+    price_lookup = price_lookup_factory(db, country.id)
     material = compute_material_cost(product.bom_lines, price_lookup, product.consumable_pct, product.ohp_pct)
     # Furniture projects price on material alone -- no coverage rate, no
     # labor. (compute_labor_cost also returns zero without a coverage rate,
@@ -65,19 +65,33 @@ def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.Es
     return line
 
 
-def _recompute_furniture_line(line: models.EstimateLine, price_lookup) -> models.EstimateLine:
-    """Furniture lines: components are user-authored, so recompute only
-    re-prices the rows the estimator entered (against current country
-    rates) -- it never adds or removes them. Per-unit material cost is the
-    sum of those components plus the per-line Factory Work charge (qty 1).
+def furniture_fx(project: models.Project) -> float:
+    """CNY per USD for a furniture project -- the per-project snapshot, or the
+    app default if it was never set."""
+    return project.cny_per_usd or project_types.DEFAULT_CNY_PER_USD
+
+
+def _recompute_furniture_line(line: models.EstimateLine) -> models.EstimateLine:
+    """Furniture lines: components are user-authored (support item +
+    qty_per_unit + CNY price + item code), so recompute only re-prices the
+    rows the estimator entered -- it never adds or removes them.
+
+        components_subtotal = sum(qty_per_unit * price_cny / fx)
+        factory_work_usd    = factory_work_cost_cny / fx
+        material_cost_per_unit = (components_subtotal + factory_work_usd)
+                                 * (1 + product.ohp_pct)
+
+    Consumable % does not apply to furniture; OHP % loads on the line total.
     No labor.
     """
+    project = line.project
     product = line.product
-    material = compute_material_cost_from_components(
-        line.components, price_lookup, product.consumable_pct, product.ohp_pct)
+    fx = furniture_fx(project)
 
-    factory_work = line.factory_work_cost or 0.0
-    line.material_cost_per_unit = material.cost_per_unit + factory_work
+    material = compute_material_cost_from_components(line.components, fx)
+    factory_work_usd = (line.factory_work_cost_cny or 0.0) / fx
+    subtotal = material.cost_per_unit + factory_work_usd
+    line.material_cost_per_unit = subtotal * (1 + (product.ohp_pct or 0.0))
     line.labor_cost_per_unit = 0.0
     line.wages_cost_per_unit = 0.0
     line.labor_expenses_per_unit = 0.0
@@ -87,10 +101,10 @@ def _recompute_furniture_line(line: models.EstimateLine, price_lookup) -> models
         c = priced.get(row.support_item_id)
         if c is None:
             continue
+        # unit_cost / total_cost are the raw converted price (no OHP -- that's
+        # a line-level overhead). Furniture quantities are real measures
+        # (m of fabric, sqm of stone) -- no whole-pack rounding.
         row.unit_cost = c.unit_price_usd
-        # Furniture quantities are real measures (m of fabric, sqm of stone) --
-        # no whole-pack rounding. total_cost carries the primary-line markup
-        # (c.cost_per_unit already includes it); qty does not.
         row.qty = (row.qty_per_unit or 0.0) * line.qty
         row.total_cost = c.cost_per_unit * line.qty
     return line

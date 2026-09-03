@@ -470,12 +470,19 @@ def _validate_project_payload(payload: schemas.ProjectIn):
         raise HTTPException(422, f"unknown project_type {payload.project_type!r}")
     if project_types.dates_required(payload.project_type) and not (payload.start_date and payload.end_date):
         raise HTTPException(422, "start_date and end_date are required for this project type")
+    if payload.cny_per_usd is not None and payload.cny_per_usd <= 0:
+        raise HTTPException(422, "cny_per_usd must be greater than 0")
 
 
 @app.post("/api/projects", response_model=schemas.ProjectOut)
 def create_project(payload: schemas.ProjectIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     _validate_project_payload(payload)
-    p = models.Project(**payload.model_dump(), owner_id=user.id)
+    data = payload.model_dump()
+    # Furniture: snapshot the CNY->USD rate so a saved estimate doesn't move
+    # when the app default changes later.
+    if project_types.bom_per_line(payload.project_type) and not data.get("cny_per_usd"):
+        data["cny_per_usd"] = project_types.DEFAULT_CNY_PER_USD
+    p = models.Project(**data, owner_id=user.id)
     db.add(p)
     db.commit()
     db.refresh(p)
@@ -581,6 +588,25 @@ def _validate_furniture_line(line: models.EstimateLine):
             raise HTTPException(422, f"Item code '{code}' is already used by another line in this project.")
 
 
+def _all_project_components(db: Session, project_id: int):
+    return db.query(models.EstimateLineComponent).join(models.EstimateLine).filter(
+        models.EstimateLine.project_id == project_id).all()
+
+
+def _validate_furniture_component(db: Session, comp: models.EstimateLineComponent):
+    """Furniture BOM components need a price (CNY, > 0) and a
+    project-unique item code (it's folded into the export names)."""
+    code = (comp.item_code or "").strip()
+    if not code:
+        raise HTTPException(422, "Each furniture BOM component needs an item code.")
+    if not comp.unit_price_cny or comp.unit_price_cny <= 0:
+        raise HTTPException(422, "Each furniture BOM component needs a price (CNY, greater than 0).")
+    project_id = comp.estimate_line.project_id
+    for other in _all_project_components(db, project_id):
+        if other.id != comp.id and (other.item_code or "").strip().lower() == code.lower():
+            raise HTTPException(422, f"Component item code '{code}' is already used elsewhere in this project.")
+
+
 @app.put("/api/estimate-lines/{line_id}", response_model=schemas.EstimateLineOut)
 def update_estimate_line(line_id: int, payload: schemas.EstimateLineIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     line = _get_owned_line(db, line_id, user)
@@ -615,11 +641,12 @@ def add_estimate_line_component(line_id: int, payload: schemas.EstimateLineCompo
         raise HTTPException(400, "that support item is already a component of this line")
     comp = models.EstimateLineComponent(
         estimate_line_id=line_id, support_item_id=payload.support_item_id,
-        qty_per_unit=payload.qty_per_unit, role=payload.role, item_code=payload.item_code,
-        qty=0.0, unit_cost=0.0, total_cost=0.0,
+        qty_per_unit=payload.qty_per_unit, unit_price_cny=payload.unit_price_cny,
+        item_code=payload.item_code, qty=0.0, unit_cost=0.0, total_cost=0.0,
     )
     db.add(comp)
     db.flush()
+    _validate_furniture_component(db, comp)
     service.recompute_estimate_line(db, line)
     db.commit()
     db.refresh(comp)
@@ -632,9 +659,10 @@ def update_estimate_line_component(component_id: int, payload: schemas.EstimateL
     comp = _get_owned_component(db, component_id, user)
     comp.support_item_id = payload.support_item_id
     comp.qty_per_unit = payload.qty_per_unit
-    comp.role = payload.role
+    comp.unit_price_cny = payload.unit_price_cny
     comp.item_code = payload.item_code
     db.flush()
+    _validate_furniture_component(db, comp)
     service.recompute_estimate_line(db, comp.estimate_line)
     db.commit()
     db.refresh(comp)
@@ -788,11 +816,13 @@ def _load_project_for_export(db: Session, project_id: int, user: models.User) ->
 
 def _validate_project_for_export(project: models.Project):
     """Furniture lines that carry a BOM must be export-ready: a project-unique
-    item code (BOM export dedup) and a Factory Work cost."""
+    line item code, a Factory Work cost, and every component with its own
+    price and project-unique item code (all fold into the export names)."""
     if not project_types.bom_per_line(project.project_type):
         return
     problems = []
-    seen_codes = {}
+    seen_line_codes = {}
+    seen_comp_codes = {}
     for line in project.estimate_lines:
         if not line.components:
             continue
@@ -800,14 +830,25 @@ def _validate_project_for_export(project: models.Project):
         code = (line.item_code or "").strip()
         if not code:
             problems.append(f"'{label}' has BOM components but no item code")
-        elif code.lower() in seen_codes:
-            problems.append(f"item code '{code}' is used by both '{seen_codes[code.lower()]}' and '{label}'")
+        elif code.lower() in seen_line_codes:
+            problems.append(f"line item code '{code}' is used by both '{seen_line_codes[code.lower()]}' and '{label}'")
         else:
-            seen_codes[code.lower()] = label
-        if not line.factory_work_cost or line.factory_work_cost <= 0:
+            seen_line_codes[code.lower()] = label
+        if not line.factory_work_cost_cny or line.factory_work_cost_cny <= 0:
             problems.append(f"'{label}' has BOM components but no Factory Work cost")
+        for comp in line.components:
+            si = comp.support_item.name if comp.support_item else "component"
+            ccode = (comp.item_code or "").strip()
+            if not ccode:
+                problems.append(f"'{label}': component '{si}' has no item code")
+            elif ccode.lower() in seen_comp_codes:
+                problems.append(f"component item code '{ccode}' is used more than once")
+            else:
+                seen_comp_codes[ccode.lower()] = si
+            if not comp.unit_price_cny or comp.unit_price_cny <= 0:
+                problems.append(f"'{label}': component '{si}' has no price")
     if problems:
-        raise HTTPException(422, "Cannot export yet: " + "; ".join(problems))
+        raise HTTPException(422, "Cannot export yet: " + "; ".join(sorted(set(problems))))
 
 
 @app.get("/api/health")

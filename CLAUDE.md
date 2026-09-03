@@ -29,14 +29,24 @@ be added to a project of its matching `product_type`.
 Wetworks products carry a fixed recipe; `service.recompute_estimate_line`
 explodes it into `EstimateLineComponent` rows on every read. Furniture
 products carry **no recipe** — the estimator picks each support item
-(`purchase_category` in Fabric / Stone / Metal / Accessories) and enters
-`EstimateLineComponent.qty_per_unit` per project. Recompute for a furniture
-line only *re-prices* the components the user entered — it never adds or
-removes them (`service._recompute_furniture_line`). Every furniture line
-that has components also carries `EstimateLine.factory_work_cost` (a
-per-project `Factory Work for <product> <item_code>` charge, qty 1) and must
-have a **project-unique `item_code`** (the standalone BOM export is keyed by
-it) — both enforced on line save and on export.
+(`purchase_category` in Fabric / Stone / Metal / Accessories) and enters,
+per project: `qty_per_unit`, `unit_price_cny` (the purchase price in Chinese
+yuan — furniture is China-sourced), and a **project-unique `item_code`**.
+Recompute for a furniture line only *re-prices* those rows — it never adds
+or removes them (`service._recompute_furniture_line`):
+
+```
+component_usd  = qty_per_unit * unit_price_cny / project.cny_per_usd
+factory_work$  = line.factory_work_cost_cny / project.cny_per_usd   (qty always 1)
+material_cost_per_unit = (Σ component_usd + factory_work$) * (1 + product.ohp_pct)
+```
+
+Consumable % does **not** apply to furniture; OHP % loads on the line total
+(components + Factory Work), not per component. `Project.cny_per_usd` is
+snapshotted from `project_types.DEFAULT_CNY_PER_USD` at creation and editable
+per project. Every furniture line with components must have a project-unique
+`item_code` and a `factory_work_cost_cny`; every component must have a price
+and a project-unique `item_code` — all enforced on save and on export.
 
 > **History (furniture extension):** the app was "I-Field Wetworks
 > Estimator"; `WetworksProduct`/`wetworks_products` were renamed to
@@ -113,9 +123,12 @@ docker compose up --build       # app on :80, api docs on :8000/docs
 - `backend/app/export_excel.py` — the three Odoo-format exports. Column
   headers are hardcoded to match the sample files exactly. Furniture differs
   from wetworks only where it must: furniture `estimation_type_id`, blank
-  labor column, per-line components instead of a recipe, and the synthetic
-  `Factory Work for <product> <item_code>` component row (qty 1) in all three
-  sheets.
+  labor column, `overhead_cost_percentage` = the product OHP (Odoo applies it
+  line-level), per-line components instead of a recipe, the synthetic
+  `Factory Work` component row (qty 1), and every furniture product /
+  component name qualified as `<name> <project code> <item code>` via
+  `qualified_name()` so repeated products / re-priced support items stay
+  distinct Odoo records.
 - `backend/import_catalog.py` — loads a flat Odoo `product.template`
   workbook (`name | uom_id | standard_price | categ_id | Vendor`), upserting
   by name: `FFE / *` → loose furniture products, `Joinery / *` → fixed
@@ -180,9 +193,13 @@ docker compose up --build       # app on :80, api docs on :8000/docs
 - Wetworks `EstimateLineComponent` rows are a *derived snapshot* (rebuilt
   from the recipe every recompute); furniture ones are *user data* (only
   re-priced). Anything that touches recompute must keep that branch — a
-  furniture line's components carry the estimator's `qty_per_unit` and must
-  survive rate/qty changes.
-- `EstimateLine.factory_work_cost` is folded into `material_cost_per_unit`
+  furniture line's components carry the estimator's `qty_per_unit` /
+  `unit_price_cny` / `item_code` and must survive rate/qty changes.
+- Furniture money is entered in **CNY** (`unit_price_cny`,
+  `factory_work_cost_cny`) and converted with `Project.cny_per_usd`; the
+  stored `EstimateLineComponent.unit_cost` / `total_cost` are the derived
+  USD, and everything downstream (line totals, exports) is USD as before.
+- `EstimateLine.factory_work_cost_cny` is folded into `material_cost_per_unit`
   (it's not a separate cost bucket), and appears in exports as a synthetic
   component, not a stored `EstimateLineComponent`.
 - Adding a fourth project type, or splitting loose/fixed furniture behaviour:

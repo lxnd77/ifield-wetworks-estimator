@@ -273,6 +273,7 @@ function OdooIdEditor({ product, onSave }) {
 }
 
 function MaterialMarkupEditor({ product, onSave }) {
+  const furniture = laborApplies(product.product_type) === false;
   const [consumablePct, setConsumablePct] = useState((product.consumable_pct * 100) ?? 0);
   const [ohpPct, setOhpPct] = useState((product.ohp_pct * 100) ?? 0);
   const [saving, setSaving] = useState(false);
@@ -287,7 +288,8 @@ function MaterialMarkupEditor({ product, onSave }) {
     setSaving(true);
     try {
       await onSave({
-        consumable_pct: Number(consumablePct || 0) / 100,
+        // Furniture ignores consumable % -- keep it at 0.
+        consumable_pct: furniture ? 0 : Number(consumablePct || 0) / 100,
         ohp_pct: Number(ohpPct || 0) / 100,
       });
     } finally {
@@ -299,26 +301,34 @@ function MaterialMarkupEditor({ product, onSave }) {
 
   return (
     <form onSubmit={save} className="bg-white border rounded-lg p-4">
-      <h2 className="font-medium text-slate-800 mb-1">Material markup</h2>
+      <h2 className="font-medium text-slate-800 mb-1">{furniture ? "Overhead" : "Material markup"}</h2>
       <p className="text-xs text-slate-500 mb-3">
-        Consumable % (CMBL) + OHP % (overhead), applied only to this product's primary material line
-        {primaryLines.length > 0 && (
-          <> ({primaryLines.map((l) => l.support_item.name).join(", ")})</>
+        {furniture ? (
+          <>OHP % (overhead), applied to each furniture estimate line's total (components + Factory Work).</>
+        ) : (
+          <>
+            Consumable % (CMBL) + OHP % (overhead), applied only to this product's primary material line
+            {primaryLines.length > 0 && (
+              <> ({primaryLines.map((l) => l.support_item.name).join(", ")})</>
+            )}
+            , matching the source Estimate Form.
+          </>
         )}
-        , matching the source Estimate Form.
       </p>
       <div className="grid grid-cols-2 gap-3 max-w-sm">
-        <div>
-          <label className="text-xs text-slate-500">Consumable % (CMBL)</label>
-          <input type="number" step="0.1" value={consumablePct} onChange={(e) => setConsumablePct(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm" />
-        </div>
+        {!furniture && (
+          <div>
+            <label className="text-xs text-slate-500">Consumable % (CMBL)</label>
+            <input type="number" step="0.1" value={consumablePct} onChange={(e) => setConsumablePct(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm" />
+          </div>
+        )}
         <div>
           <label className="text-xs text-slate-500">OHP % (overhead)</label>
           <input type="number" step="0.1" value={ohpPct} onChange={(e) => setOhpPct(e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-sm" />
         </div>
       </div>
       <button disabled={saving} className="mt-3 text-sm px-4 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
-        {saving ? "Saving..." : "Save material markup"}
+        {saving ? "Saving..." : furniture ? "Save overhead" : "Save material markup"}
       </button>
     </form>
   );

@@ -56,6 +56,11 @@ CONFIG = {
 # component picker filter). Wetworks uses Paint / Tile / Stone / Metal.
 FURNITURE_BOM_CATEGORIES = ["Fabric", "Stone", "Metal", "Accessories"]
 
+# Furniture component prices and the Factory Work charge are entered in CNY
+# (China-sourced products). New furniture projects snapshot this rate into
+# Project.cny_per_usd, where an estimator can adjust it per project.
+DEFAULT_CNY_PER_USD = 7.2
+
 VALUES = tuple(CONFIG)
 
 
