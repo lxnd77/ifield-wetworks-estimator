@@ -41,6 +41,15 @@ def test_labor_cost_marble_flooring():
     assert abs(res.cost_per_unit - 25.83730496453901) < 0.02
 
 
+def test_labor_cost_zero_without_coverage_rate():
+    """Furniture products carry no coverage rate -- labor must come back a
+    clean zero (this is what makes a furniture line material-only)."""
+    res = compute_labor_cost(None, make_ksa_country(), duration_months=6)
+    assert res.cost_per_unit == 0.0
+    assert res.wages_per_unit == 0.0
+    assert res.expenses_per_unit == 0.0
+
+
 def test_shorter_duration_raises_labor_cost():
     """Air ticket / visa are amortized over the actual project duration --
     a shorter project should cost more per unit, not less or the same."""

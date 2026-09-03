@@ -30,7 +30,7 @@ export default function Login() {
       <form onSubmit={submit} className="bg-white border rounded-lg shadow-sm w-full max-w-sm p-6 space-y-4">
         <div className="text-center">
           <img src="/ifield-logo.png" alt="i-field" className="h-7 w-auto mx-auto mb-3" />
-          <h1 className="text-lg font-display font-semibold text-ink">Wetworks Estimator</h1>
+          <h1 className="text-lg font-display font-semibold text-ink">I-Field Estimator</h1>
         </div>
         <div>
           <label className="text-xs text-ink/60">Username</label>

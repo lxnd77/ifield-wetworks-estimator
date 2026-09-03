@@ -21,7 +21,7 @@ Design notes (see README for the full writeup):
     itself reuses those columns.
 
 Historical reference only -- seed.py no longer reads this module. It now
-loads app/seed_data_ksa.json (see dump_seed_data.py), which reflects the
+loads app/seed_catalog.json (see dump_seed_data.py), which reflects the
 catalog as it stands after admin cleanup (BOM item renames, vendor
 assignments, per-family purchasing companies, restructured/shared BOM
 lines) rather than this original bundled-line reverse-engineering.
@@ -132,7 +132,7 @@ PRODUCT_COVERAGE_MAP = {
 }
 
 # product_name -> (unit_price_usd, wastage_pct, cmbl_pct, oh_pct) from the Estimate Form.
-# cmbl_pct/oh_pct become WetworksProduct.consumable_pct/ohp_pct, applied to
+# cmbl_pct/oh_pct become Product.consumable_pct/ohp_pct, applied to
 # the primary BOM line only.
 PRODUCT_MATERIAL_MAP = {
     "Floor GVT Tile 60 X120": (13.5, 0.1, 0.15, 0.1),

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../api";
+import { PROJECT_TYPES, typeLabel, laborApplies } from "../projectTypes";
 
 export default function AdminProductDetail() {
   const { id } = useParams();
@@ -51,6 +52,7 @@ export default function AdminProductDetail() {
   const saveProduct = async (overrides) => {
     await api.put(`/products/${product.id}`, {
       name: product.name, uom: product.uom, category: product.category,
+      product_type: product.product_type,
       default_code: product.default_code, odoo_id: product.odoo_id, notes: product.notes,
       purchasing_company_id: product.purchasing_company_id,
       default_vendor_id: product.default_vendor_id,
@@ -65,8 +67,10 @@ export default function AdminProductDetail() {
       <div>
         <Link to="/admin/products" className="text-xs text-ruby hover:underline">&larr; All products</Link>
         <h1 className="text-xl font-semibold text-slate-800 mt-1">{product.name}</h1>
-        <div className="text-xs text-slate-500">{product.category} &middot; {product.uom}</div>
+        <div className="text-xs text-slate-500">{typeLabel(product.product_type)} &middot; {product.category} &middot; {product.uom}</div>
       </div>
+
+      <ProductTypeEditor product={product} onSave={saveProduct} />
 
       <OdooIdEditor product={product} onSave={saveProduct} />
 
@@ -74,7 +78,7 @@ export default function AdminProductDetail() {
 
       <MaterialMarkupEditor product={product} onSave={saveProduct} />
 
-      <CoverageRateEditor product={product} onSaved={load} />
+      {laborApplies(product.product_type) && <CoverageRateEditor product={product} onSaved={load} />}
 
       <BomEditor product={product} supportItems={supportItems} onChanged={load} />
 
@@ -184,6 +188,47 @@ function PurchasingRouteEditor({ product, purchasingCompanies, vendors, onSave }
       <button disabled={saving} className="mt-3 text-sm px-4 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
         {saving ? "Saving..." : "Save purchasing route"}
       </button>
+    </form>
+  );
+}
+
+function ProductTypeEditor({ product, onSave }) {
+  const [value, setValue] = useState(product.product_type);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => setValue(product.product_type), [product.id, product.product_type]);
+
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onSave({ product_type: value });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const dirty = value !== product.product_type;
+
+  return (
+    <form onSubmit={save} className="bg-white border rounded-lg p-4">
+      <h2 className="font-medium text-slate-800 mb-1">Product type</h2>
+      <p className="text-xs text-slate-500 mb-3">
+        Which kind of project this product can be added to. Furniture types price on material only --
+        their coverage rate (labor) is not used. Changing this hides the product from projects of the old type.
+      </p>
+      <div className="flex items-end gap-2">
+        <select value={value} onChange={(e) => setValue(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm">
+          {PROJECT_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
+        </select>
+        {dirty && (
+          <button disabled={saving} className="text-sm px-4 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
+            {saving ? "Saving..." : "Save type"}
+          </button>
+        )}
+      </div>
     </form>
   );
 }

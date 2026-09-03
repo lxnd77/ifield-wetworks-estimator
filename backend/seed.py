@@ -1,11 +1,11 @@
-"""Run once to (re)create the schema and load the Wetworks product catalog +
-KSA country seed data. Safe to re-run: it wipes and rebuilds.
+"""Run once to (re)create the schema and load the product catalog + KSA
+country seed data. Safe to re-run: it wipes and rebuilds.
 
-The catalog is loaded verbatim from app/seed_data_ksa.json -- a full export
+The catalog is loaded verbatim from app/seed_catalog.json -- a full export
 of the actual, cleaned-up catalog (BOM item names distinct from their
 product, per-item vendor assignments, per-family purchasing companies,
 shared/restructured BOM lines) rather than the original raw workbook
-extraction. See app/seed_data_ksa.json's own place in git history for what
+extraction. See app/seed_catalog.json's own place in git history for what
 changed and when; regenerate it (see dump_seed_data.py) whenever further
 catalog cleanup happens in an admin session, so it doesn't get lost on the
 next re-seed.
@@ -15,12 +15,13 @@ Usage:  python seed.py
 import sys
 import os
 import json
+from collections import Counter
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.database import Base, engine, SessionLocal
 from app import models
 
-SEED_DATA_PATH = os.path.join(os.path.dirname(__file__), "app", "seed_data_ksa.json")
+SEED_DATA_PATH = os.path.join(os.path.dirname(__file__), "app", "seed_catalog.json")
 
 
 def run():
@@ -68,9 +69,10 @@ def run():
             country_id_map[row["id"]] = country.id
 
         product_id_map = {}
-        for row in data["wetworks_products"]:
-            p = models.WetworksProduct(
+        for row in data["products"]:
+            p = models.Product(
                 name=row["name"], uom=row["uom"], category=row["category"],
+                product_type=row.get("product_type", "wetworks"),
                 default_code=row.get("default_code"), odoo_id=row.get("odoo_id"),
                 active=bool(row.get("active", True)), needs_setup=bool(row.get("needs_setup", True)),
                 notes=row.get("notes"),
@@ -120,9 +122,14 @@ def run():
 
         db.commit()
 
-        total = len(data["wetworks_products"])
-        configured = db.query(models.WetworksProduct).filter(models.WetworksProduct.needs_setup == False).count()
-        print(f"Seeded {total} products ({configured} fully configured for KSA, {total - configured} flagged needs_setup).")
+        total = len(data["products"])
+        by_type = Counter(p.product_type for p in db.query(models.Product))
+        ww_ready = db.query(models.Product).filter(
+            models.Product.product_type == "wetworks", models.Product.needs_setup == False).count()
+        print(f"Seeded {total} products: "
+              f"{by_type.get('wetworks', 0)} wetworks ({ww_ready} configured for KSA), "
+              f"{by_type.get('loose_furniture', 0)} loose furniture, "
+              f"{by_type.get('fixed_furniture', 0)} fixed furniture.")
         print(f"Support items: {db.query(models.SupportItem).count()}")
         print(f"BOM lines: {db.query(models.BomLine).count()}")
         print(f"Coverage rates: {db.query(models.CoverageRate).count()}")

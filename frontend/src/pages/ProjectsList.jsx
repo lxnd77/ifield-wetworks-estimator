@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api";
 import { useCurrentUser } from "../components/RequireAuth";
+import { PROJECT_TYPES, typeConfig, typeLabel } from "../projectTypes";
 
 export default function ProjectsList() {
   const currentUser = useCurrentUser();
@@ -47,7 +48,8 @@ export default function ProjectsList() {
               {p.name} {p.code && <span className="text-slate-400 font-normal">({p.code})</span>}
             </div>
             <div className="text-xs text-slate-400 mt-1">
-              {p.country?.name} &middot; {p.start_date} &rarr; {p.end_date}
+              <span className="text-slate-500">{typeLabel(p.project_type)}</span> &middot; {p.country?.name}
+              {p.start_date && <> &middot; {p.start_date} &rarr; {p.end_date}</>}
               {p.selling_company && <> &middot; sold via {p.selling_company.name}</>}
             </div>
             {p.client_name && <div className="text-xs text-slate-500 mt-2">Client: {p.client_name}</div>}
@@ -74,6 +76,7 @@ function NewProjectModal({ countries, sellingCompanies, onClose, onCreated }) {
   const [form, setForm] = useState({
     name: "",
     code: "",
+    project_type: "wetworks",
     country_id: countries[0]?.id || "",
     selling_company_id: "",
     client_name: "",
@@ -86,6 +89,7 @@ function NewProjectModal({ countries, sellingCompanies, onClose, onCreated }) {
   const [error, setError] = useState("");
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const datesRequired = typeConfig(form.project_type).datesRequired;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -96,6 +100,8 @@ function NewProjectModal({ countries, sellingCompanies, onClose, onCreated }) {
         ...form,
         country_id: Number(form.country_id),
         selling_company_id: form.selling_company_id ? Number(form.selling_company_id) : null,
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
         default_margin_pct: Number(form.default_margin_pct),
       };
       const res = await api.post("/projects", payload);
@@ -111,6 +117,19 @@ function NewProjectModal({ countries, sellingCompanies, onClose, onCreated }) {
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-20 p-4">
       <form onSubmit={submit} className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-3">
         <h2 className="text-lg font-semibold text-slate-800">New project</h2>
+        <div>
+          <label className="text-xs text-slate-500">Project type</label>
+          <select value={form.project_type} onChange={set("project_type")} className="w-full border rounded-md px-3 py-2 text-sm">
+            {PROJECT_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+          <p className="text-[11px] text-slate-400 mt-1">
+            {datesRequired
+              ? "Material + labor costing. Only Wetworks products can be added."
+              : "Material-only costing (no labor). Only furniture products can be added."}
+          </p>
+        </div>
         <div className="grid grid-cols-3 gap-3">
           <div className="col-span-2">
             <label className="text-xs text-slate-500">Project name</label>
@@ -150,12 +169,12 @@ function NewProjectModal({ countries, sellingCompanies, onClose, onCreated }) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-slate-500">Start date</label>
-            <input type="date" required value={form.start_date} onChange={set("start_date")} className="w-full border rounded-md px-3 py-2 text-sm" />
+            <label className="text-xs text-slate-500">Start date{!datesRequired && " (optional)"}</label>
+            <input type="date" required={datesRequired} value={form.start_date} onChange={set("start_date")} className="w-full border rounded-md px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="text-xs text-slate-500">End date</label>
-            <input type="date" required value={form.end_date} onChange={set("end_date")} className="w-full border rounded-md px-3 py-2 text-sm" />
+            <label className="text-xs text-slate-500">End date{!datesRequired && " (optional)"}</label>
+            <input type="date" required={datesRequired} value={form.end_date} onChange={set("end_date")} className="w-full border rounded-md px-3 py-2 text-sm" />
           </div>
         </div>
         <div>

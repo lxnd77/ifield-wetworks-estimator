@@ -13,7 +13,7 @@ from app import models
 Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 try:
-    count = db.query(models.WetworksProduct).count()
+    count = db.query(models.Product).count()
 finally:
     db.close()
 

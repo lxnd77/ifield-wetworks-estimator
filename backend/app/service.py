@@ -1,18 +1,32 @@
 """Shared business logic used by both the API and the Excel export."""
 import math
 from sqlalchemy.orm import Session
-from . import models
-from .calc import compute_material_cost, compute_labor_cost, price_lookup_factory
+from . import models, project_types
+from .calc import (
+    compute_material_cost, compute_material_cost_from_components,
+    compute_labor_cost, price_lookup_factory, LaborResult,
+)
 
 
 def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.EstimateLine:
     project = line.project
     product = line.product
     country = project.country
-
     price_lookup = price_lookup_factory(db, country.id)
+
+    if project_types.bom_per_line(project.project_type):
+        return _recompute_furniture_line(line, price_lookup)
+
     material = compute_material_cost(product.bom_lines, price_lookup, product.consumable_pct, product.ohp_pct)
-    labor = compute_labor_cost(product.coverage_rate, country, project.duration_months)
+    # Furniture projects price on material alone -- no coverage rate, no
+    # labor. (compute_labor_cost also returns zero without a coverage rate,
+    # but the explicit guard means furniture costing never depends on that
+    # side effect, and a stray coverage rate on a furniture product can't
+    # leak labor into the line.)
+    if project_types.labor_applies(project.project_type):
+        labor = compute_labor_cost(product.coverage_rate, country, project.duration_months)
+    else:
+        labor = LaborResult(cost_per_unit=0.0, wages_per_unit=0.0, expenses_per_unit=0.0)
 
     line.material_cost_per_unit = material.cost_per_unit
     line.labor_cost_per_unit = labor.cost_per_unit
@@ -48,6 +62,37 @@ def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.Es
     for support_item_id, row in existing_by_support_item.items():
         if support_item_id not in seen_support_item_ids:
             db.delete(row)
+    return line
+
+
+def _recompute_furniture_line(line: models.EstimateLine, price_lookup) -> models.EstimateLine:
+    """Furniture lines: components are user-authored, so recompute only
+    re-prices the rows the estimator entered (against current country
+    rates) -- it never adds or removes them. Per-unit material cost is the
+    sum of those components plus the per-line Factory Work charge (qty 1).
+    No labor.
+    """
+    product = line.product
+    material = compute_material_cost_from_components(
+        line.components, price_lookup, product.consumable_pct, product.ohp_pct)
+
+    factory_work = line.factory_work_cost or 0.0
+    line.material_cost_per_unit = material.cost_per_unit + factory_work
+    line.labor_cost_per_unit = 0.0
+    line.wages_cost_per_unit = 0.0
+    line.labor_expenses_per_unit = 0.0
+
+    priced = {c.support_item_id: c for c in material.components}
+    for row in line.components:
+        c = priced.get(row.support_item_id)
+        if c is None:
+            continue
+        row.unit_cost = c.unit_price_usd
+        # Furniture quantities are real measures (m of fabric, sqm of stone) --
+        # no whole-pack rounding. total_cost carries the primary-line markup
+        # (c.cost_per_unit already includes it); qty does not.
+        row.qty = (row.qty_per_unit or 0.0) * line.qty
+        row.total_cost = c.cost_per_unit * line.qty
     return line
 
 

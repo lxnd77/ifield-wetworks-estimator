@@ -3,7 +3,7 @@ item naming and assigning purchase category, vendor, and purchasing company.
 
 Two sheets, both keyed by database id so a filled-in copy can be re-imported
 reliably even after names change:
-  - Line Items: one row per WetworksProduct.
+  - Line Items: one row per Product.
   - BOM Items: one row per BomLine (so a support item shared by several
     products appears once per product it's used in, with a "shared across N
     products" flag -- renaming it on any one row renames the single
@@ -57,7 +57,7 @@ def build(db, path):
     lines = [
         "How to fill this out",
         "",
-        "Two sheets: 'Line Items' (the Wetworks products themselves) and 'BOM Items' "
+        "Two sheets: 'Line Items' (the products themselves) and 'BOM Items' "
         "(the materials each one is built from).",
         "",
         "Yellow columns are editable. Everything else is read-only context -- don't need to touch it.",
@@ -117,10 +117,10 @@ def build(db, path):
     ws1.append(headers1)
     style_header(ws1, len(headers1))
 
-    products = db.query(models.WetworksProduct).options(
-        joinedload(models.WetworksProduct.purchasing_company),
-        joinedload(models.WetworksProduct.default_vendor),
-    ).order_by(models.WetworksProduct.category, models.WetworksProduct.name).all()
+    products = db.query(models.Product).options(
+        joinedload(models.Product.purchasing_company),
+        joinedload(models.Product.default_vendor),
+    ).order_by(models.Product.category, models.Product.name).all()
 
     for p in products:
         ws1.append([
@@ -147,8 +147,8 @@ def build(db, path):
     bom_lines = db.query(models.BomLine).options(
         joinedload(models.BomLine.product),
         joinedload(models.BomLine.support_item).joinedload(models.SupportItem.default_vendor),
-    ).join(models.WetworksProduct).order_by(
-        models.WetworksProduct.category, models.WetworksProduct.name, models.BomLine.sort_order
+    ).join(models.Product).order_by(
+        models.Product.category, models.Product.name, models.BomLine.sort_order
     ).all()
 
     usage_count = {}

@@ -11,6 +11,11 @@ class Vendor(Base):
     e.g. a specific tile or paint supplier. Distinct from PurchasingCompany,
     which is the I-Field entity that buys from this vendor on the purchasing
     country's behalf."""
+
+    # NOTE (furniture extension, phase 00): the catalog is no longer
+    # Wetworks-only. WetworksProduct -> Product, table wetworks_products ->
+    # products. "Wetworks" survives only as a project/product *type* value,
+    # not in identifiers.
     __tablename__ = "vendors"
 
     id = Column(Integer, primary_key=True)
@@ -19,9 +24,9 @@ class Vendor(Base):
 
 
 class PurchasingCompany(Base):
-    """An I-Field entity that buys a finished Wetworks line item on behalf of
-    the selling company, e.g. 'I FIELD FURNISHING TRADING LLC' (Dubai) for
-    Wetworks. Tied to a WetworksProduct as its default purchasing route."""
+    """An I-Field entity that buys a finished line item on behalf of the
+    selling company, e.g. 'I FIELD FURNISHING TRADING LLC' (Dubai) for
+    Wetworks. Tied to a Product as its default purchasing route."""
     __tablename__ = "purchasing_companies"
 
     id = Column(Integer, primary_key=True)
@@ -43,7 +48,7 @@ class SellingCompany(Base):
 
 class SupportItem(Base):
     """A purchasable material / BOM component (cement, gypsum board, paint tin,
-    screws...). A Wetworks product's own 'primary' material (e.g. the tile itself)
+    screws...). A product's own 'primary' material (e.g. the tile itself)
     is also represented as a SupportItem so it can carry a country-specific price
     just like any other component."""
     __tablename__ = "support_items"
@@ -60,7 +65,7 @@ class SupportItem(Base):
     odoo_id = Column(String, nullable=True)
     uom = Column(String, nullable=False, default="Pcs")
     notes = Column(Text, nullable=True)
-    # Independent of WetworksProduct.category -- classifies the BOM item
+    # Independent of Product.category -- classifies the BOM item
     # itself for purchasing/export purposes (which categories get a
     # user-entered item code during estimation: Paint/Tile/Stone/Metal).
     purchase_category = Column(String, nullable=True)
@@ -70,14 +75,19 @@ class SupportItem(Base):
     default_vendor = relationship("Vendor")
 
 
-class WetworksProduct(Base):
-    """A Wetworks line item from the Product Master (e.g. 'Floor GVT Tile 60 X120')."""
-    __tablename__ = "wetworks_products"
+class Product(Base):
+    """A line item from the Product Master (e.g. 'Floor GVT Tile 60 X120')."""
+    __tablename__ = "products"
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     uom = Column(String, nullable=False)
     category = Column(String, nullable=False)  # Tile / False Ceiling / Paint / Stone / Counters / Flooring
+    # Which estimation mode this product belongs to -- see app/project_types.py.
+    # "wetworks" (material + labor) / "loose_furniture" / "fixed_furniture"
+    # (material only, no coverage rate). A line item can only be added to a
+    # project of the matching type.
+    product_type = Column(String, nullable=False, server_default="wetworks")
     default_code = Column(String, nullable=True)
     # Odoo's own product.template external id, once known -- see
     # SupportItem.odoo_id for what this is and why it's separate from
@@ -89,7 +99,7 @@ class WetworksProduct(Base):
     notes = Column(Text, nullable=True)
     # Default purchasing route: the I-Field entity that buys this finished
     # line item on behalf of the project's selling company (e.g. Dubai for
-    # Wetworks). default_vendor_id is an override for the rare case the
+    # Wetworks projects). default_vendor_id is an override for the rare case the
     # line item is bought whole, directly from a vendor, bypassing the
     # purchasing company.
     purchasing_company_id = Column(Integer, ForeignKey("purchasing_companies.id"), nullable=True)
@@ -111,20 +121,20 @@ class WetworksProduct(Base):
 
 class BomLine(Base):
     """One recipe line: how much of a SupportItem is needed per 1 unit of a
-    WetworksProduct, before/after wastage. Recipe quantities are global
+    Product, before/after wastage. Recipe quantities are global
     (country-independent) per the product decision -- only the SupportItem's
     price varies by country."""
     __tablename__ = "bom_lines"
 
     id = Column(Integer, primary_key=True)
-    product_id = Column(Integer, ForeignKey("wetworks_products.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     support_item_id = Column(Integer, ForeignKey("support_items.id"), nullable=False)
     qty_per_unit = Column(Float, nullable=False)  # before wastage
     wastage_pct = Column(Float, nullable=False, default=0.0)  # e.g. 0.1 = 10%
     role = Column(String, nullable=False, default="fixing")  # 'primary' or 'fixing' -- consumable/OHP % (on the product) applies only to 'primary' lines
     sort_order = Column(Integer, nullable=False, default=0)
 
-    product = relationship("WetworksProduct", back_populates="bom_lines")
+    product = relationship("Product", back_populates="bom_lines")
     support_item = relationship("SupportItem")
 
 
@@ -134,7 +144,7 @@ class CoverageRate(Base):
     __tablename__ = "coverage_rates"
 
     id = Column(Integer, primary_key=True)
-    product_id = Column(Integer, ForeignKey("wetworks_products.id"), nullable=False, unique=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, unique=True)
     primary_coverage_per_day = Column(Float, nullable=False)  # e.g. sqm/day the crew produces
     secondary_coverage_per_day = Column(Float, nullable=True, default=0.0)  # e.g. grouting sqm/day per worker
     inhouse_count = Column(Integer, nullable=False, default=2)
@@ -144,7 +154,7 @@ class CoverageRate(Base):
     inhouse_salary_month_local = Column(Float, nullable=False, default=0.0)
     local_salary_month_local = Column(Float, nullable=False, default=0.0)
 
-    product = relationship("WetworksProduct", back_populates="coverage_rate")
+    product = relationship("Product", back_populates="coverage_rate")
 
     @property
     def total_labor(self):
@@ -216,6 +226,11 @@ class Project(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
+    # Estimation mode -- see app/project_types.py. "wetworks" (material +
+    # labor, dates required) / "loose_furniture" / "fixed_furniture"
+    # (material only, dates optional). Drives which products can be added,
+    # whether labor is costed, and the Odoo estimation_type_id on export.
+    project_type = Column(String, nullable=False, server_default="wetworks")
     # Short code (e.g. "FLH") used as the project half of the Odoo product
     # reference code: f"{code} {item_code}" e.g. "FLH PT-01".
     code = Column(String, nullable=True)
@@ -225,8 +240,11 @@ class Project(Base):
     client_name = Column(String, nullable=True)
     address = Column(String, nullable=True)
     estimator_name = Column(String, nullable=True)
-    start_date = Column(Date, nullable=False)
-    end_date = Column(Date, nullable=False)
+    # Required for wetworks projects (they drive labor mobilization
+    # amortization); optional for furniture, where nothing reads them for
+    # costing. Enforced per project_type at the API layer, not the schema.
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
     default_margin_pct = Column(Float, nullable=False, default=0.0)
     display_currency = Column(String, nullable=False, default="USD")
     notes = Column(Text, nullable=True)
@@ -240,6 +258,10 @@ class Project(Base):
 
     @property
     def duration_months(self):
+        # Furniture projects may have no dates; nothing reads this for their
+        # costing, so a neutral 1.0 keeps compute_labor_cost's math finite.
+        if not self.start_date or not self.end_date:
+            return 1.0
         days = (self.end_date - self.start_date).days
         return max(days, 1) / 30.4368
 
@@ -262,7 +284,7 @@ class EstimateLine(Base):
     id = Column(Integer, primary_key=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     location_id = Column(Integer, ForeignKey("project_locations.id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("wetworks_products.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     qty = Column(Float, nullable=False)
     margin_pct_override = Column(Float, nullable=True)
     drawing_no = Column(String, nullable=True)
@@ -273,8 +295,16 @@ class EstimateLine(Base):
     description = Column(String, nullable=True)
     dimension = Column(String, nullable=True)  # not currently surfaced in any export (was product-import's product_dimension column, removed)
     # User-entered during estimation; combines with Project.code to form the
-    # Odoo product reference code for this line item.
+    # Odoo product reference code for this line item. Required + unique within
+    # the project for furniture lines that carry components (the standalone
+    # BOM export is keyed by it) -- enforced at the API layer.
     item_code = Column(String, nullable=True)
+
+    # Furniture only: the per-project "Factory Work for <product>" charge that
+    # every furniture line with a BOM must carry (qty is always 1). Folded
+    # into material_cost_per_unit; emitted as a qty-1 component row in all
+    # three exports. Null / unused for wetworks.
+    factory_work_cost = Column(Float, nullable=True)
 
     # computed / cached at save time (per unit, in USD)
     material_cost_per_unit = Column(Float, default=0.0)
@@ -287,21 +317,37 @@ class EstimateLine(Base):
 
     project = relationship("Project", back_populates="estimate_lines")
     location = relationship("ProjectLocation", back_populates="estimate_lines")
-    product = relationship("WetworksProduct")
+    product = relationship("Product")
     components = relationship("EstimateLineComponent", back_populates="estimate_line", cascade="all, delete-orphan")
 
 
 class EstimateLineComponent(Base):
-    """Snapshot of the exploded BOM for one estimate line, at the country prices
-    used when the line was last computed. Powers the BOM Odoo export."""
+    """One BOM component of an estimate line, priced at the country rates used
+    when the line was last computed. Powers the BOM Odoo export.
+
+    For WETWORKS lines these rows are a *derived snapshot* -- rebuilt on every
+    recompute by exploding the product's fixed recipe (qty_per_unit stays
+    null; `qty` is the whole-pack-rounded total).
+
+    For FURNITURE lines these rows are *user-authored* -- the estimator picks
+    each support item (Fabric / Stone / Metal / Accessories) and enters
+    `qty_per_unit` for this project; recompute only re-prices them against
+    current country rates, never adds or removes them.
+    """
     __tablename__ = "estimate_line_components"
 
     id = Column(Integer, primary_key=True)
     estimate_line_id = Column(Integer, ForeignKey("estimate_lines.id"), nullable=False)
     support_item_id = Column(Integer, ForeignKey("support_items.id"), nullable=False)
+    # Furniture: user-entered consumption per 1 unit of the product. Wetworks:
+    # null (the recipe drives it; only the rounded total `qty` is stored).
+    qty_per_unit = Column(Float, nullable=True)
     qty = Column(Float, nullable=False)  # total qty for the line's full estimate qty
     unit_cost = Column(Float, nullable=False)  # USD per uom of the support item
     total_cost = Column(Float, nullable=False)
+    # 'primary' or 'fixing' -- the product's consumable%/OHP% markup loads onto
+    # 'primary' rows only, same rule as BomLine.role.
+    role = Column(String, nullable=False, default="fixing", server_default="fixing")
     # User-entered during estimation; preserved across recompute_estimate_line
     # (which upserts by support_item_id rather than delete/recreate) so it
     # survives rate/BOM changes that trigger a recompute.

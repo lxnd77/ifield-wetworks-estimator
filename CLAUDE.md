@@ -1,4 +1,4 @@
-# I-Field Wetworks Estimator — project memory
+# I-Field Estimator — project memory
 
 Read this before making changes. Full user-facing docs are in `README.md`;
 this file is oriented at whoever (human or Claude) picks up development next.
@@ -6,19 +6,53 @@ this file is oriented at whoever (human or Claude) picks up development next.
 ## What this is
 
 A web app for I-Field (interior turnkey contracting) that replaces a manual,
-per-country Excel estimation workflow with a live tool: pick a country +
-project duration, add Wetworks line items (tile, paint, gypsum ceiling, etc.)
-per project location with a quantity, and it computes material cost + labor
-cost + margin automatically. Exports two Excel files matching the exact
-column format of Odoo's `sale.estimation` import and BOM import.
+per-country Excel estimation workflow with a live tool: pick a country, add
+line items per project location with a quantity, and it computes cost +
+margin automatically. Exports three Excel files matching Odoo's
+`sale.estimation`, BOM, and product-import formats.
 
-Origin: built from 5 source workbooks the client provided (Wetworks Product
+Every project has a **type**, chosen at creation (see `app/project_types.py`,
+the single source of truth):
+
+| type | costing | BOM | dates |
+|---|---|---|---|
+| `wetworks` | material **+ labor** | fixed product recipe (`BomLine`) | required |
+| `loose_furniture` | material only | **per estimate line** + a Factory Work charge | optional |
+| `fixed_furniture` | material only | same as loose | optional |
+
+"Loose" vs "fixed" furniture are identical in the engine — they differ only
+by label and the Odoo `estimation_type_id` on export. A line item can only
+be added to a project of its matching `product_type`.
+
+### Furniture BOM model (differs from wetworks)
+
+Wetworks products carry a fixed recipe; `service.recompute_estimate_line`
+explodes it into `EstimateLineComponent` rows on every read. Furniture
+products carry **no recipe** — the estimator picks each support item
+(`purchase_category` in Fabric / Stone / Metal / Accessories) and enters
+`EstimateLineComponent.qty_per_unit` per project. Recompute for a furniture
+line only *re-prices* the components the user entered — it never adds or
+removes them (`service._recompute_furniture_line`). Every furniture line
+that has components also carries `EstimateLine.factory_work_cost` (a
+per-project `Factory Work for <product> <item_code>` charge, qty 1) and must
+have a **project-unique `item_code`** (the standalone BOM export is keyed by
+it) — both enforced on line save and on export.
+
+> **History (furniture extension):** the app was "I-Field Wetworks
+> Estimator"; `WetworksProduct`/`wetworks_products` were renamed to
+> `Product`/`products` (alembic `f1a2b3c4d5e6`) and `seed_data_ksa.json` to
+> `seed_catalog.json`. Local dev DB filenames (`ifield_wetworks.db`) and the
+> repo directory name are deliberately unchanged (deploy-path coordination).
+> "Wetworks" survives only as a project/product *type*.
+
+Origin: the wetworks side was built from 5 client workbooks (Wetworks Product
 Master, LBR Rate Calculation, INT_COST_SHEET_KSA, sample Sale Estimation
-export, sample BOM Odoo export). The costing formulas in `backend/app/calc.py`
-were reverse-engineered from those workbooks and are verified against them in
-`backend/tests/test_calc.py`. If you're asked to add a new cost driver or
-country, re-read the "How estimation works" section of `README.md` first —
-it documents the derivation, not just the result.
+export, sample BOM Odoo export); its costing formulas in
+`backend/app/calc.py` are reverse-engineered from those and verified in
+`backend/tests/test_calc.py`. The furniture catalog was loaded from a later
+`Product Master NEW.xlsx` via `backend/import_catalog.py`. If you're asked to
+add a new cost driver or country, re-read the "How estimation works" section
+of `README.md` first — it documents the derivation, not just the result.
 
 ## Stack
 
@@ -52,21 +86,43 @@ docker compose up --build       # app on :80, api docs on :8000/docs
 
 ## Where things live
 
+- `backend/app/project_types.py` — the three estimation modes and their
+  rules (`labor_applies`, `bom_per_line`, `dates_required`,
+  `odoo_estimation_type`, `FURNITURE_BOM_CATEGORIES`). Imported by the API,
+  the costing service, and the exports. The furniture
+  `odoo_estimation_type` strings ("Loose Furniture" / "Fixed Furniture") are
+  **provisional** — marked `TODO`, pending the real values in the client's
+  Odoo. `frontend/src/projectTypes.js` is a hand-kept mirror.
 - `backend/app/calc.py` — the costing engine (pure functions, no DB/ORM
   dependency, easiest place to unit test formula changes).
+  `compute_material_cost` explodes a wetworks recipe;
+  `compute_material_cost_from_components` sums user-entered furniture
+  component quantities; both apply the product's consumable%/OHP% markup to
+  `role == "primary"` lines only.
 - `backend/app/service.py` — recompute + line/project totals, shared by API
   and export. `_recompute_all_lines` is called on every read of estimate
   lines/summary/export, so estimate costs are always a live view over current
-  master data (country rates, BOM, coverage) — not a stale snapshot.
-- `backend/app/models.py` — schema. Key relationships: `WetworksProduct` has
-  many `BomLine` (recipe) and one `CoverageRate` (labor); `Country` has many
-  `CountryMaterialPrice` (per support item); `Project` has many
-  `ProjectLocation` and `EstimateLine`.
-- `backend/app/export_excel.py` — the two Odoo-format exports. Column headers
-  are hardcoded to match the sample files exactly; if the client's Odoo
-  schema changes, update the header lists here first, then the row-building
-  logic.
-- `backend/app/seed_data_ksa.json` — the actual catalog `seed.py` loads:
+  master data. Branches on `project_types.bom_per_line`:
+  `_recompute_furniture_line` re-prices user components + `factory_work_cost`
+  and never rebuilds them; the wetworks path rebuilds from the recipe.
+- `backend/app/models.py` — schema. Key relationships: `Product` has
+  many `BomLine` (wetworks recipe) and one `CoverageRate` (wetworks labor);
+  `Country` has many `CountryMaterialPrice` (per support item); `Project`
+  has many `ProjectLocation` and `EstimateLine`; `EstimateLine` has many
+  `EstimateLineComponent` (derived for wetworks, user-authored for furniture).
+- `backend/app/export_excel.py` — the three Odoo-format exports. Column
+  headers are hardcoded to match the sample files exactly. Furniture differs
+  from wetworks only where it must: furniture `estimation_type_id`, blank
+  labor column, per-line components instead of a recipe, and the synthetic
+  `Factory Work for <product> <item_code>` component row (qty 1) in all three
+  sheets.
+- `backend/import_catalog.py` — loads a flat Odoo `product.template`
+  workbook (`name | uom_id | standard_price | categ_id | Vendor`), upserting
+  by name: `FFE / *` → loose furniture products, `Joinery / *` → fixed
+  furniture products, `Support*` → support items (`purchase_category`
+  assigned). Idempotent. Run `python dump_seed_data.py` afterwards to fold
+  the result into `seed_catalog.json`.
+- `backend/app/seed_catalog.json` — the actual catalog `seed.py` loads:
   products, BOM lines, coverage rates, vendors, purchasing/selling
   companies, country rate card. It's a live snapshot (via
   `dump_seed_data.py`) of the catalog *as cleaned up through the admin UI*
@@ -86,21 +142,25 @@ docker compose up --build       # app on :80, api docs on :8000/docs
 
 ## Current status
 
-- 53 of 75 Wetworks products fully configured for KSA (Tile, False
-  Ceiling/Gypsum, Paint, Punning, Dry Wall, IPS, Plaster). 22 flagged
-  `needs_setup=True` (Stone, Counters, a couple of composite Flooring items,
-  2 items with broken formulas in the source workbook) — addable to an
-  estimate but price as $0 until an admin fills in BOM + coverage rate.
+- Catalog: **283 products** (76 wetworks, 166 loose furniture, 41 fixed
+  furniture) + 87 support items + 28 vendors, all in `seed_catalog.json`.
+- 54 of 76 wetworks products fully configured for KSA (Tile, False
+  Ceiling/Gypsum, Paint, Punning, Dry Wall, IPS, Plaster). The rest are
+  `needs_setup=True` — addable but price $0 until an admin fills in BOM +
+  coverage rate.
+- Furniture products are `needs_setup=False` (no catalog recipe), but their
+  support items have **no KSA prices yet** — a furniture line's components
+  show $0 until an admin sets per-country prices (Admin → Country, or
+  `import_catalog.py --country KSA` if a priced sheet arrives).
 - Only KSA is seeded. "Add a country" creates an empty template
-  (`is_template=True`) that needs its rate card + material prices filled in.
-- No auth. Single implicit "Estimator" role, as scoped for V1.
-- Excel export only — no direct Odoo API push (deliberately deferred).
-- Full manual QA pass done in the authoring session: created a project via
-  the actual UI (not just API), added locations/line items, verified live
-  cost recompute, downloaded both export files, confirmed they match the
-  sample column structure. See README's "Known limitations" for the open
-  items (Punning's freight sub-formula, remobilization-for-long-projects
-  rule, purchase-cost pack-rounding).
+  (`is_template=True`).
+- No auth beyond a single implicit "Estimator" role. Excel export only — no
+  direct Odoo API push (deferred).
+- QA: all three project types verified end to end (each with all three
+  exports); alembic chain runs clean baseline↔head; pytest green
+  (`backend/tests/`). See README's "Known limitations" for open wetworks
+  items (Punning's freight sub-formula, remobilization rule, pack-rounding)
+  and the provisional furniture `odoo_estimation_type` strings.
 
 ## Conventions / gotchas
 
@@ -117,3 +177,15 @@ docker compose up --build       # app on :80, api docs on :8000/docs
 - Money is computed and stored in USD internally everywhere; `Country`
   records carry local-currency inputs + fx rates so admins can edit rate
   cards the way the source spreadsheets presented them.
+- Wetworks `EstimateLineComponent` rows are a *derived snapshot* (rebuilt
+  from the recipe every recompute); furniture ones are *user data* (only
+  re-priced). Anything that touches recompute must keep that branch — a
+  furniture line's components carry the estimator's `qty_per_unit` and must
+  survive rate/qty changes.
+- `EstimateLine.factory_work_cost` is folded into `material_cost_per_unit`
+  (it's not a separate cost bucket), and appears in exports as a synthetic
+  component, not a stored `EstimateLineComponent`.
+- Adding a fourth project type, or splitting loose/fixed furniture behaviour:
+  everything keys off `app/project_types.py` — add the config entry there and
+  the mirror in `frontend/src/projectTypes.js`, then follow the `bom_per_line`
+  / `labor_applies` branches.

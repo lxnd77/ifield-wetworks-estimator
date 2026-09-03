@@ -112,6 +112,7 @@ class ProductOut(BaseModel):
     name: str
     uom: str
     category: str
+    product_type: str = "wetworks"
     default_code: Optional[str] = None
     odoo_id: Optional[str] = None
     active: bool
@@ -134,12 +135,14 @@ class ProductCostOut(BaseModel):
     material_cost_per_unit: float
     labor_cost_per_unit: float
     needs_setup: bool
+    product_type: str = "wetworks"
 
 
 class ProductIn(BaseModel):
     name: str
     uom: str
     category: str
+    product_type: str = "wetworks"
     default_code: Optional[str] = None
     odoo_id: Optional[str] = None
     notes: Optional[str] = None
@@ -262,8 +265,9 @@ class ProjectOut(BaseModel):
     client_name: Optional[str] = None
     address: Optional[str] = None
     estimator_name: Optional[str] = None
-    start_date: date
-    end_date: date
+    project_type: str = "wetworks"
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
     default_margin_pct: float
     display_currency: str
     notes: Optional[str] = None
@@ -275,12 +279,13 @@ class ProjectIn(BaseModel):
     name: str
     code: Optional[str] = None
     country_id: int
+    project_type: str = "wetworks"
     selling_company_id: Optional[int] = None
     client_name: Optional[str] = None
     address: Optional[str] = None
     estimator_name: Optional[str] = None
-    start_date: date
-    end_date: date
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
     default_margin_pct: float = 0.0
     display_currency: str = "USD"
     notes: Optional[str] = None
@@ -291,13 +296,23 @@ class EstimateLineComponentOut(BaseModel):
     id: int
     support_item_id: int
     support_item: SupportItemOut
+    qty_per_unit: Optional[float] = None
     qty: float
     unit_cost: float
     total_cost: float
+    role: str = "fixing"
     item_code: Optional[str] = None
 
 
 class EstimateLineComponentCodeIn(BaseModel):
+    item_code: Optional[str] = None
+
+
+class EstimateLineComponentIn(BaseModel):
+    """Add / edit a user-authored component on a furniture estimate line."""
+    support_item_id: int
+    qty_per_unit: float
+    role: str = "fixing"
     item_code: Optional[str] = None
 
 
@@ -315,6 +330,7 @@ class EstimateLineOut(BaseModel):
     description: Optional[str] = None
     dimension: Optional[str] = None
     item_code: Optional[str] = None
+    factory_work_cost: Optional[float] = None
     material_cost_per_unit: float
     labor_cost_per_unit: float
     wages_cost_per_unit: float
@@ -336,3 +352,4 @@ class EstimateLineIn(BaseModel):
     description: Optional[str] = None
     dimension: Optional[str] = None
     item_code: Optional[str] = None
+    factory_work_cost: Optional[float] = None

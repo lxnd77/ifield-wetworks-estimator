@@ -2,7 +2,7 @@
 (name, uom, category, default_price_usd_or_None)
 
 Historical reference only -- seed.py no longer reads this. It now loads
-app/seed_data_ksa.json, a live snapshot of the actual (renamed, vendor-
+app/seed_catalog.json, a live snapshot of the actual (renamed, vendor-
 assigned, restructured) catalog, produced by dump_seed_data.py. Kept here
 as a record of the original, unedited workbook data.
 """

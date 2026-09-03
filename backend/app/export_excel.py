@@ -18,14 +18,14 @@ so blank/omitted values are safe.
 
 The sale estimation sheet's product_id columns and the product import
 sheet's own "id" column get the Odoo external id populated alongside them,
-from WetworksProduct.odoo_id / SupportItem.odoo_id, whenever that's been set
+from Product.odoo_id / SupportItem.odoo_id, whenever that's been set
 -- blank otherwise. That's what lets Odoo match an existing record instead
 of creating a duplicate or relying on name matching. The BOM sheet does not
 carry id columns -- it only ever references products/support items by name.
 """
 from io import BytesIO
 import openpyxl
-from . import models, service
+from . import models, service, project_types
 
 
 SALE_ESTIMATION_HEADERS = [
@@ -82,6 +82,29 @@ def line_virtual_product_name(line: models.EstimateLine) -> str:
     return line.product.name
 
 
+def factory_work_name(product: models.Product, item_code=None) -> str:
+    """Every furniture line that carries a BOM includes this as a qty-1
+    component -- the per-project assembly/labor charge. The line's item code
+    is folded into the name so several lines of the same product (e.g. two
+    different "Sofa" line items) get distinct Factory Work entries."""
+    code = (item_code or "").strip()
+    return f"Factory Work for {product.name} {code}".rstrip()
+
+
+# Sentinel standing in for the synthetic Factory Work row while iterating a
+# furniture line's components.
+_FACTORY_WORK = object()
+
+
+def _line_component_rows(project: models.Project, line: models.EstimateLine) -> list:
+    """The component rows to emit for a line: its stored components, plus the
+    synthetic Factory Work row for a furniture line that has any."""
+    rows = list(line.components or [])
+    if rows and project_types.bom_per_line(project.project_type):
+        rows.append(_FACTORY_WORK)
+    return rows
+
+
 def reference_code(project: models.Project, item_code) -> str:
     """Project code + user-entered item code, e.g. "FLH PT-01". No item code
     means no reference at all -- a project code alone isn't a usable Odoo
@@ -96,6 +119,24 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
     ws = wb.active
     ws.title = "Sheet1"
     ws.append(SALE_ESTIMATION_HEADERS)
+
+    # estimation_type_id drives the Odoo record type; furniture projects
+    # stamp a different one (see project_types.py). labor_cost is emitted
+    # only for wetworks -- for furniture the column stays in the header row
+    # but every value is blank (Odoo matches by header, so blank is safe and
+    # keeps one code path).
+    labor_applies = project_types.labor_applies(project.project_type)
+    first_row_meta = {
+        "estimation_type_id": project_types.odoo_estimation_type(project.project_type),
+        "project_estimation_id": project.name,
+        "costing_type": "Product and Service",
+        "source_pricelist_id": "Default AED pricelist",
+        "destination_pricelist_id": "Default AED pricelist",
+        "description": project.name,
+        "estimation_date": project.start_date or "",
+        "delivery_date": project.end_date or "",
+        "responsible": project.estimator_name or "",
+    }
 
     first_row_written = False
     for line in project.estimate_lines:
@@ -118,51 +159,42 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
             # this export (columns L-Q), so populating it here would
             # conflict with that calculation.
             "estimation_line_ids/wastage_percentage": round(avg_wastage * 100, 2),
-            "estimation_line_ids/labor_cost": round(line.labor_cost_per_unit, 2),
+            "estimation_line_ids/labor_cost": round(line.labor_cost_per_unit, 2) if labor_applies else "",
             "estimation_line_ids/margin_percentage": round(totals["margin_pct"] / 100, 4),
         }
-        components = line.components or []
-        if not components:
+        comp_rows = _line_component_rows(project, line)
+        if not comp_rows:
             row = {h: "" for h in SALE_ESTIMATION_HEADERS}
             if not first_row_written:
-                row.update({
-                    "estimation_type_id": "Wetworks", "project_estimation_id": project.name,
-                    "costing_type": "Product and Service",
-                    "source_pricelist_id": "Default AED pricelist",
-                    "destination_pricelist_id": "Default AED pricelist",
-                    "description": project.name,
-                    "estimation_date": project.start_date, "delivery_date": project.end_date,
-                    "responsible": project.estimator_name or "",
-                })
+                row.update(first_row_meta)
                 first_row_written = True
             row.update(line_header)
             ws.append([row[h] for h in SALE_ESTIMATION_HEADERS])
             continue
 
-        for i, comp in enumerate(components):
+        for i, comp in enumerate(comp_rows):
             row = {h: "" for h in SALE_ESTIMATION_HEADERS}
             if not first_row_written:
-                row.update({
-                    "estimation_type_id": "Wetworks", "project_estimation_id": project.name,
-                    "costing_type": "Product and Service",
-                    "source_pricelist_id": "Default AED pricelist",
-                    "destination_pricelist_id": "Default AED pricelist",
-                    "description": project.name,
-                    "estimation_date": project.start_date, "delivery_date": project.end_date,
-                    "responsible": project.estimator_name or "",
-                })
+                row.update(first_row_meta)
                 first_row_written = True
             if i == 0:
                 row.update(line_header)
-            row.update({
-                "estimation_line_ids/sale_estimation_component_product_line_ids/product_id": comp.support_item.name,
-                "estimation_line_ids/sale_estimation_component_product_line_ids/product_id/id": comp.support_item.odoo_id or "",
-                "estimation_line_ids/sale_estimation_component_product_line_ids/default_code": comp.support_item.default_code or "",
-                # comp.qty is the total across the line's full qty
-                # (qty_per_unit * line.qty); Odoo wants the per-unit rate.
-                "estimation_line_ids/sale_estimation_component_product_line_ids/product_uom_qty":
-                    round(comp.qty / line.qty, 6) if line.qty else 0,
-            })
+            if comp is _FACTORY_WORK:
+                row.update({
+                    "estimation_line_ids/sale_estimation_component_product_line_ids/product_id":
+                        factory_work_name(line.product, line.item_code),
+                    "estimation_line_ids/sale_estimation_component_product_line_ids/product_uom_qty": 1,
+                })
+            else:
+                row.update({
+                    "estimation_line_ids/sale_estimation_component_product_line_ids/product_id": comp.support_item.name,
+                    "estimation_line_ids/sale_estimation_component_product_line_ids/product_id/id": comp.support_item.odoo_id or "",
+                    "estimation_line_ids/sale_estimation_component_product_line_ids/default_code": comp.support_item.default_code or "",
+                    # comp.qty is the total across the line's full qty
+                    # (qty_per_unit * line.qty); Odoo wants the per-unit rate.
+                    "estimation_line_ids/sale_estimation_component_product_line_ids/product_uom_qty":
+                        round(comp.qty / line.qty, 6) if line.qty else 0,
+                })
             ws.append([row[h] for h in SALE_ESTIMATION_HEADERS])
 
     buf = BytesIO()
@@ -229,12 +261,15 @@ def build_product_import_workbooks(db, project: models.Project) -> list:
         ])
 
     selling_sheet = sheet_for(project.selling_company)
+    furniture = project_types.bom_per_line(project.project_type)
 
     for line in project.estimate_lines:
         product = line.product
         purchasing_sheet = sheet_for(product.purchasing_company)
         purchasing_company_name = product.purchasing_company.name if product.purchasing_company else ""
-        is_manufacture = bool(product.bom_lines)
+        # Wetworks: Manufacture iff the product has a recipe. Furniture: iff
+        # this line has user-entered components.
+        is_manufacture = bool(product.bom_lines) or (furniture and bool(line.components))
 
         line_key = ("product", product.id, line.item_code)
         line_default_code = reference_code(project, line.item_code)
@@ -255,6 +290,15 @@ def build_product_import_workbooks(db, project: models.Project) -> list:
                 add_row(selling_sheet, key, support_item.name,
                         comp_default_code, purchasing_company_name, False,
                         odoo_id=support_item.odoo_id, standard_price=standard_price)
+            if furniture and line.components:
+                # Factory Work: a Buy line on both sheets, vendor = purchasing
+                # company, price left blank (it's project-specific and already
+                # on the sale-estimation component line).
+                fw_name = factory_work_name(product, line.item_code)
+                fw_key = ("factory_work", product.id, line.item_code)
+                fw_code = reference_code(project, line.item_code)
+                add_row(purchasing_sheet, fw_key, fw_name, fw_code, purchasing_company_name, False)
+                add_row(selling_sheet, fw_key, fw_name, fw_code, purchasing_company_name, False)
         else:
             purchasing_vendor = product.default_vendor.name if product.default_vendor else ""
             add_row(purchasing_sheet, line_key, product.name, line_default_code,
@@ -297,15 +341,23 @@ def build_bom_workbook(db, project: models.Project) -> BytesIO:
 
         product_name = line_virtual_product_name(line)
         reference = ""
-        bom_lines = line.product.bom_lines
-        if not bom_lines:
+
+        if project_types.bom_per_line(project.project_type):
+            # Furniture: recipe is per-line -- (support item, user qty_per_unit)
+            # plus the qty-1 Factory Work row. No wastage.
+            bom = [(c.support_item.name, c.qty_per_unit or 0.0) for c in line.components]
+            if line.components:
+                bom.append((factory_work_name(line.product, line.item_code), 1))
+        else:
+            bom = [(b.support_item.name, b.qty_per_unit * (1 + (b.wastage_pct or 0)))
+                   for b in line.product.bom_lines]
+
+        if not bom:
             ws.append([product_name, reference, 1, "", "", ""])
             continue
-        for i, b in enumerate(bom_lines):
-            qty = b.qty_per_unit * (1 + (b.wastage_pct or 0))
-            row = [product_name if i == 0 else "", reference if i == 0 else "",
-                   1 if i == 0 else "", "", b.support_item.name, round(qty, 6)]
-            ws.append(row)
+        for i, (comp_name, qty) in enumerate(bom):
+            ws.append([product_name if i == 0 else "", reference if i == 0 else "",
+                       1 if i == 0 else "", "", comp_name, round(qty, 6)])
 
     buf = BytesIO()
     wb.save(buf)
