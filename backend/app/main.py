@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, joinedload
 from . import models, schemas, service, auth, calc, project_types
 from .database import Base, engine, get_db
 from .export_excel import (
-    build_sale_estimation_workbook, build_bom_workbook, build_product_import_workbooks,
+    build_sale_estimation_workbook, build_bom_workbook, build_product_import_workbooks, norm_code,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -374,15 +374,52 @@ def get_country(country_id: int, db: Session = Depends(get_db), user: models.Use
     return c
 
 
+# New countries start as a copy of this one -- its whole rate card and every
+# material price -- for an admin to adjust.
+SOURCE_COUNTRY_CODE = "KSA"
+_COUNTRY_IDENTITY_FIELDS = {"name", "code", "notes"}
+
+
 @app.post("/api/countries", response_model=schemas.CountryOut)
 def create_country(payload: schemas.CountryIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     if db.query(models.Country).filter(models.Country.code == payload.code).first():
         raise HTTPException(400, f"country code {payload.code} already exists")
-    c = models.Country(**payload.model_dump(), is_active=True, is_template=True)
+    data = payload.model_dump()
+    source = db.query(models.Country).options(joinedload(models.Country.material_prices)).filter(
+        models.Country.code == SOURCE_COUNTRY_CODE).first()
+    if source:
+        # Rate-card fields the caller didn't explicitly send come from the
+        # source country.
+        for field in schemas.CountryIn.model_fields:
+            if field not in _COUNTRY_IDENTITY_FIELDS and field not in payload.model_fields_set:
+                data[field] = getattr(source, field)
+    # Still a template: the copied figures are Saudi's until an admin saves
+    # this country's own rate card.
+    c = models.Country(**data, is_active=True, is_template=True)
+    if source:
+        c.material_prices = [
+            models.CountryMaterialPrice(support_item_id=p.support_item_id, unit_price_local=p.unit_price_local)
+            for p in source.material_prices
+        ]
     db.add(c)
     db.commit()
     db.refresh(c)
     return c
+
+
+@app.delete("/api/countries/{country_id}")
+def delete_country(country_id: int, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
+    c = db.query(models.Country).get(country_id)
+    if not c:
+        raise HTTPException(404, "country not found")
+    if c.code == SOURCE_COUNTRY_CODE:
+        raise HTTPException(400, f"{c.name} can't be deleted -- new countries are copied from it.")
+    in_use = db.query(models.Project).filter(models.Project.country_id == country_id).count()
+    if in_use:
+        raise HTTPException(400, f"{c.name} is used by {in_use} project(s) -- delete or move those first.")
+    db.delete(c)
+    db.commit()
+    return {"ok": True}
 
 
 @app.put("/api/countries/{country_id}", response_model=schemas.CountryOut)
@@ -468,6 +505,10 @@ def get_project(project_id: int, db: Session = Depends(get_db), user: models.Use
 def _validate_project_payload(payload: schemas.ProjectIn):
     if not project_types.is_valid(payload.project_type):
         raise HTTPException(422, f"unknown project_type {payload.project_type!r}")
+    # Every exported product name / reference starts with the project code.
+    if not (payload.code or "").strip():
+        raise HTTPException(422, "A project code is required (it prefixes every item code in the exports).")
+    payload.code = payload.code.strip()
     if project_types.dates_required(payload.project_type) and not (payload.start_date and payload.end_date):
         raise HTTPException(422, "start_date and end_date are required for this project type")
     if payload.cny_per_usd is not None and payload.cny_per_usd <= 0:
@@ -495,7 +536,7 @@ def update_project(project_id: int, payload: schemas.ProjectIn, db: Session = De
     _validate_project_payload(payload)
     for k, v in payload.model_dump().items():
         setattr(p, k, v)
-    db.commit()
+    db.flush()
     _recompute_all_lines(db, p)
     db.commit()
     db.refresh(p)
@@ -532,12 +573,176 @@ def delete_location(location_id: int, db: Session = Depends(get_db), user: model
     return {"ok": True}
 
 
-def _recompute_all_lines(db: Session, project: models.Project):
-    for line in project.estimate_lines:
-        service.recompute_estimate_line(db, line)
+def _recompute_all_lines(db: Session, project: models.Project) -> list:
+    """Recompute every line of a project and return them (ordered by id).
+
+    Everything recompute and the API response touch is loaded up front in a
+    handful of queries, and the country price table is read once -- on
+    Vercel + hosted Postgres every extra round trip is expensive, and this
+    runs on every estimate read."""
+    lines = db.query(models.EstimateLine).options(
+        joinedload(models.EstimateLine.product).joinedload(models.Product.bom_lines)
+        .joinedload(models.BomLine.support_item),
+        joinedload(models.EstimateLine.product).joinedload(models.Product.coverage_rate),
+        joinedload(models.EstimateLine.product).joinedload(models.Product.purchasing_company),
+        joinedload(models.EstimateLine.product).joinedload(models.Product.default_vendor),
+        joinedload(models.EstimateLine.components).joinedload(models.EstimateLineComponent.support_item)
+        .joinedload(models.SupportItem.default_vendor),
+    ).filter(models.EstimateLine.project_id == project.id).order_by(models.EstimateLine.id).all()
+    price_lookup = None
+    if lines and not project_types.bom_per_line(project.project_type):
+        price_lookup = calc.price_lookup_factory(db, project.country_id)
+    for line in lines:
+        service.recompute_estimate_line(db, line, price_lookup=price_lookup)
+    return lines
+
+
+def _commit_if_changed(db: Session):
+    """Reads recompute costs on the fly; only pay for a write transaction
+    when a recomputed value actually moved."""
+    if db.new or db.deleted or any(db.is_modified(o) for o in db.dirty):
+        db.commit()
+
+
+def _product_costs(db: Session, project: models.Project) -> dict:
+    """Per-unit material/labor cost for every active wetworks product of the
+    project's type (see project_product_costs). Furniture lines are priced
+    per line on the server, so they need no product-level cost map."""
+    if project_types.bom_per_line(project.project_type):
+        return {}
+    price_lookup = calc.price_lookup_factory(db, project.country_id)
+    products = db.query(models.Product).options(
+        joinedload(models.Product.bom_lines).joinedload(models.BomLine.support_item),
+        joinedload(models.Product.coverage_rate),
+    ).filter(
+        models.Product.active == True,
+        models.Product.product_type == project.project_type,
+    ).all()
+    result = {}
+    for p in products:
+        material = calc.compute_material_cost(p.bom_lines, price_lookup, p.consumable_pct, p.ohp_pct)
+        labor_cost = calc.compute_labor_cost(
+            p.coverage_rate, project.country, project.duration_months).cost_per_unit
+        result[p.id] = schemas.ProductCostOut(
+            material_cost_per_unit=material.cost_per_unit,
+            labor_cost_per_unit=labor_cost,
+            needs_setup=p.needs_setup,
+            product_type=p.product_type,
+        )
+    return result
+
+
+_WORKSPACE_PROJECT_OPTIONS = (
+    joinedload(models.Project.country),
+    joinedload(models.Project.selling_company),
+    joinedload(models.Project.owner),
+    joinedload(models.Project.locations),
+)
+
+
+def _workspace(db: Session, project: models.Project, include_catalog: bool) -> dict:
+    lines = _recompute_all_lines(db, project)
+    _commit_if_changed(db)
+    out = {"project": project, "lines": lines, "product_costs": _product_costs(db, project)}
+    if include_catalog:
+        out["products"] = db.query(models.Product).options(
+            joinedload(models.Product.purchasing_company),
+            joinedload(models.Product.default_vendor),
+        ).filter(
+            models.Product.active == True,
+            models.Product.product_type == project.project_type,
+        ).order_by(models.Product.category, models.Product.name).all()
+        out["selling_companies"] = db.query(models.SellingCompany).order_by(models.SellingCompany.name).all()
+        out["support_items"] = db.query(models.SupportItem).options(
+            joinedload(models.SupportItem.default_vendor)
+        ).order_by(models.SupportItem.name).all()
+    return out
 
 
 # ---------------------------------------------------------------- estimate lines
+@app.get("/api/projects/{project_id}/workspace", response_model=schemas.ProjectWorkspaceOut)
+def project_workspace(project_id: int, catalog: bool = True, db: Session = Depends(get_db),
+                      user: models.User = Depends(auth.get_current_user)):
+    """The estimator screen's single load call: project, recomputed lines,
+    the wetworks product cost map, and (unless catalog=false) the product /
+    selling-company / support-item lists."""
+    project = _get_owned_project(db, project_id, user, options=_WORKSPACE_PROJECT_OPTIONS)
+    return _workspace(db, project, include_catalog=catalog)
+
+
+@app.put("/api/projects/{project_id}/estimate", response_model=schemas.ProjectWorkspaceOut)
+def save_estimate(project_id: int, payload: schemas.EstimateSaveIn, db: Session = Depends(get_db),
+                  user: models.User = Depends(auth.get_current_user)):
+    """Save the estimator's whole draft (locations + lines) in one
+    transaction: it either all applies or nothing does, so a rejected line
+    can never leave half a save behind (which used to re-create lines on the
+    next Save)."""
+    project = _get_owned_project(db, project_id, user, options=_WORKSPACE_PROJECT_OPTIONS + (
+        joinedload(models.Project.estimate_lines),))
+    existing_locs = {l.id: l for l in project.locations}
+    existing_lines = {l.id: l for l in project.estimate_lines}
+
+    kept_locs = []
+    loc_by_key = {}
+    for loc_in in payload.locations:
+        if loc_in.id is not None:
+            loc = existing_locs.get(loc_in.id)
+            if loc is None:
+                raise HTTPException(422, f"Location {loc_in.id} does not belong to this project.")
+            loc.name, loc.sort_order = loc_in.name, loc_in.sort_order
+        else:
+            loc = models.ProjectLocation(name=loc_in.name, sort_order=loc_in.sort_order)
+            project.locations.append(loc)
+        if loc_in.key:
+            loc_by_key[loc_in.key] = loc
+        kept_locs.append(loc)
+    for loc in list(project.locations):
+        if all(loc is not k for k in kept_locs):
+            project.locations.remove(loc)
+            db.delete(loc)
+
+    product_ids = {l.product_id for l in payload.lines}
+    product_types = dict(db.query(models.Product.id, models.Product.product_type)
+                         .filter(models.Product.id.in_(product_ids)).all()) if product_ids else {}
+
+    kept_lines = []
+    for line_in in payload.lines:
+        if line_in.location_id is not None:
+            loc = next((l for l in kept_locs if l.id == line_in.location_id), None)
+        else:
+            loc = loc_by_key.get(line_in.location_key)
+        if loc is None:
+            raise HTTPException(422, "A line item refers to a location that isn't in this save.")
+        if product_types.get(line_in.product_id) != project.project_type:
+            raise HTTPException(422, f"Product {line_in.product_id} can't be added to a "
+                                     f"{project_types.label(project.project_type)} project.")
+        fields = line_in.model_dump(exclude={"id", "location_id", "location_key"})
+        if line_in.id is not None:
+            line = existing_lines.get(line_in.id)
+            if line is None:
+                raise HTTPException(422, f"Line {line_in.id} does not belong to this project.")
+            for k, v in fields.items():
+                setattr(line, k, v)
+        else:
+            line = models.EstimateLine(**fields)
+            project.estimate_lines.append(line)
+        line.location = loc
+        kept_lines.append(line)
+    for line in list(project.estimate_lines):
+        if all(line is not k for k in kept_lines):
+            project.estimate_lines.remove(line)
+            db.delete(line)
+
+    db.flush()
+    for line in kept_lines:
+        _validate_furniture_line(line)
+    out = _workspace(db, project, include_catalog=False)
+    # The edits were flushed above, so _workspace's commit-if-changed can't
+    # see them -- always commit a save.
+    db.commit()
+    return out
+
+
 @app.get("/api/projects/{project_id}/estimate-lines", response_model=List[schemas.EstimateLineOut])
 def list_estimate_lines(project_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     project = _get_owned_project(db, project_id, user)
@@ -545,13 +750,9 @@ def list_estimate_lines(project_id: int, db: Session = Depends(get_db), user: mo
     # coverage made after the line was created are reflected immediately --
     # estimate lines are a live view over current master data, not a
     # point-in-time snapshot.
-    _recompute_all_lines(db, project)
-    db.commit()
-    return db.query(models.EstimateLine).options(
-        joinedload(models.EstimateLine.product),
-        joinedload(models.EstimateLine.components).joinedload(models.EstimateLineComponent.support_item)
-        .joinedload(models.SupportItem.default_vendor),
-    ).filter(models.EstimateLine.project_id == project_id).all()
+    lines = _recompute_all_lines(db, project)
+    _commit_if_changed(db)
+    return lines
 
 
 @app.post("/api/projects/{project_id}/estimate-lines", response_model=schemas.EstimateLineOut)
@@ -575,17 +776,15 @@ def _get_owned_line(db: Session, line_id: int, user: models.User) -> models.Esti
 
 
 def _validate_furniture_line(line: models.EstimateLine):
-    """A furniture line that carries BOM components must have a
-    project-unique item code -- the standalone BOM export is keyed by it, so
-    two such lines sharing a code would collapse into one wrong mrp.bom."""
+    """A furniture line that carries BOM components must have an item code.
+    Reusing a code is allowed: an exported product is identified by project +
+    product + code, so two lines of the same product with the same code are
+    the same product -- the export checks they carry the same BOM (a line is
+    usually still mid-edit when saved, so it isn't enforced here)."""
     if not project_types.bom_per_line(line.project.project_type) or not line.components:
         return
-    code = (line.item_code or "").strip()
-    if not code:
+    if not (line.item_code or "").strip():
         raise HTTPException(422, "This furniture line has BOM components -- it needs an item code.")
-    for other in line.project.estimate_lines:
-        if other.id != line.id and other.components and (other.item_code or "").strip().lower() == code.lower():
-            raise HTTPException(422, f"Item code '{code}' is already used by another line in this project.")
 
 
 def _all_project_components(db: Session, project_id: int):
@@ -594,8 +793,9 @@ def _all_project_components(db: Session, project_id: int):
 
 
 def _validate_furniture_component(db: Session, comp: models.EstimateLineComponent):
-    """Furniture BOM components need a price (CNY, > 0) and a
-    project-unique item code (it's folded into the export names)."""
+    """Furniture BOM components need a price (CNY, > 0) and an item code. The
+    same support item + code is the same exported product, so reusing that
+    pair elsewhere in the project must keep the same price."""
     code = (comp.item_code or "").strip()
     if not code:
         raise HTTPException(422, "Each furniture BOM component needs an item code.")
@@ -603,8 +803,13 @@ def _validate_furniture_component(db: Session, comp: models.EstimateLineComponen
         raise HTTPException(422, "Each furniture BOM component needs a price (CNY, greater than 0).")
     project_id = comp.estimate_line.project_id
     for other in _all_project_components(db, project_id):
-        if other.id != comp.id and (other.item_code or "").strip().lower() == code.lower():
-            raise HTTPException(422, f"Component item code '{code}' is already used elsewhere in this project.")
+        if (other.id != comp.id and other.support_item_id == comp.support_item_id
+                and norm_code(other.item_code) == norm_code(code)
+                and abs((other.unit_price_cny or 0.0) - comp.unit_price_cny) > 1e-9):
+            name = other.support_item.name if other.support_item else "This item"
+            raise HTTPException(422, f"'{name}' with item code '{code}' is already priced at "
+                                     f"¥{other.unit_price_cny:g} elsewhere in this project -- use the same "
+                                     f"price or a different item code.")
 
 
 @app.put("/api/estimate-lines/{line_id}", response_model=schemas.EstimateLineOut)
@@ -640,11 +845,11 @@ def add_estimate_line_component(line_id: int, payload: schemas.EstimateLineCompo
             estimate_line_id=line_id, support_item_id=payload.support_item_id).first():
         raise HTTPException(400, "that support item is already a component of this line")
     comp = models.EstimateLineComponent(
-        estimate_line_id=line_id, support_item_id=payload.support_item_id,
+        support_item_id=payload.support_item_id,
         qty_per_unit=payload.qty_per_unit, unit_price_cny=payload.unit_price_cny,
         item_code=payload.item_code, qty=0.0, unit_cost=0.0, total_cost=0.0,
     )
-    db.add(comp)
+    line.components.append(comp)
     db.flush()
     _validate_furniture_component(db, comp)
     service.recompute_estimate_line(db, line)
@@ -673,7 +878,8 @@ def update_estimate_line_component(component_id: int, payload: schemas.EstimateL
 def delete_estimate_line_component(component_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     comp = _get_owned_component(db, component_id, user)
     line = comp.estimate_line
-    db.delete(comp)
+    # Through the collection, so recompute below no longer prices it.
+    line.components.remove(comp)
     db.flush()
     service.recompute_estimate_line(db, line)
     db.commit()
@@ -703,11 +909,9 @@ def set_estimate_line_component_code(component_id: int, payload: schemas.Estimat
 
 @app.get("/api/projects/{project_id}/summary")
 def project_summary(project_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
-    project = _get_owned_project(db, project_id, user, options=[
-        joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.product),
-    ])
+    project = _get_owned_project(db, project_id, user)
     _recompute_all_lines(db, project)
-    db.commit()
+    _commit_if_changed(db)
     return service.project_summary(db, project)
 
 
@@ -717,33 +921,10 @@ def project_product_costs(project_id: int, db: Session = Depends(get_db), user: 
     this project's country + duration. Read-only -- lets the frontend price
     line items locally while editing (see ProjectDetail.jsx) without an API
     round trip per keystroke, and without duplicating the costing formulas
-    in JS. Reuses calc.py exactly as recompute_estimate_line does."""
+    in JS. Reuses calc.py exactly as recompute_estimate_line does. Also
+    included in /workspace."""
     project = _get_owned_project(db, project_id, user)
-    price_lookup = calc.price_lookup_factory(db, project.country_id)
-    # Only products of the project's own type can be added to it, so the
-    # cost map is scoped to those.
-    products = db.query(models.Product).options(
-        joinedload(models.Product.bom_lines),
-        joinedload(models.Product.coverage_rate),
-    ).filter(
-        models.Product.active == True,
-        models.Product.product_type == project.project_type,
-    ).all()
-    labor_applies = project_types.labor_applies(project.project_type)
-    result = {}
-    for p in products:
-        material = calc.compute_material_cost(p.bom_lines, price_lookup, p.consumable_pct, p.ohp_pct)
-        labor_cost = 0.0
-        if labor_applies:
-            labor_cost = calc.compute_labor_cost(
-                p.coverage_rate, project.country, project.duration_months).cost_per_unit
-        result[p.id] = schemas.ProductCostOut(
-            material_cost_per_unit=material.cost_per_unit,
-            labor_cost_per_unit=labor_cost,
-            needs_setup=p.needs_setup,
-            product_type=p.product_type,
-        )
-    return result
+    return _product_costs(db, project)
 
 
 # ---------------------------------------------------------------- export
@@ -809,31 +990,49 @@ def _load_project_for_export(db: Session, project_id: int, user: models.User) ->
             models.EstimateLineComponent.support_item).joinedload(models.SupportItem.default_vendor),
     ])
     _recompute_all_lines(db, project)
-    db.commit()
+    _commit_if_changed(db)
     _validate_project_for_export(project)
     return project
 
 
+def _furniture_bom_signature(line: models.EstimateLine):
+    """What must match for two lines to be the same exported product: the
+    components (support item, code, qty, price) and the Factory Work cost."""
+    comps = sorted(
+        (c.support_item_id, norm_code(c.item_code), round(c.qty_per_unit or 0.0, 6), round(c.unit_price_cny or 0.0, 6))
+        for c in line.components
+    )
+    return round(line.factory_work_cost_cny or 0.0, 6), tuple(comps)
+
+
 def _validate_project_for_export(project: models.Project):
-    """Furniture lines that carry a BOM must be export-ready: a project-unique
-    line item code, a Factory Work cost, and every component with its own
-    price and project-unique item code (all fold into the export names)."""
+    """Every project needs a code (it prefixes every exported name and
+    reference). Furniture lines that carry a BOM must be export-ready: an
+    item code, a Factory Work cost, and every component with a price and an
+    item code. An exported product is project + product + code, so lines
+    sharing a product + code must carry the same BOM, and components sharing
+    a support item + code must carry the same price."""
+    if not (project.code or "").strip():
+        raise HTTPException(422, "Cannot export yet: set a project code first "
+                                 "(Edit project code) -- it prefixes every item code.")
     if not project_types.bom_per_line(project.project_type):
         return
     problems = []
-    seen_line_codes = {}
-    seen_comp_codes = {}
+    bom_by_key = {}
+    price_by_comp_key = {}
     for line in project.estimate_lines:
-        if not line.components:
-            continue
         label = line.product.name if line.product else f"line {line.id}"
         code = (line.item_code or "").strip()
+        key = (line.product_id, norm_code(code))
+        signature = _furniture_bom_signature(line)
+        if key in bom_by_key and bom_by_key[key] != signature:
+            problems.append(f"'{label}' with item code '{code or '(blank)'}' has a different BOM on different "
+                            f"lines -- the same product and code must have the same BOM, or use a different item code")
+        bom_by_key.setdefault(key, signature)
+        if not line.components:
+            continue
         if not code:
             problems.append(f"'{label}' has BOM components but no item code")
-        elif code.lower() in seen_line_codes:
-            problems.append(f"line item code '{code}' is used by both '{seen_line_codes[code.lower()]}' and '{label}'")
-        else:
-            seen_line_codes[code.lower()] = label
         if not line.factory_work_cost_cny or line.factory_work_cost_cny <= 0:
             problems.append(f"'{label}' has BOM components but no Factory Work cost")
         for comp in line.components:
@@ -841,12 +1040,14 @@ def _validate_project_for_export(project: models.Project):
             ccode = (comp.item_code or "").strip()
             if not ccode:
                 problems.append(f"'{label}': component '{si}' has no item code")
-            elif ccode.lower() in seen_comp_codes:
-                problems.append(f"component item code '{ccode}' is used more than once")
-            else:
-                seen_comp_codes[ccode.lower()] = si
             if not comp.unit_price_cny or comp.unit_price_cny <= 0:
                 problems.append(f"'{label}': component '{si}' has no price")
+                continue
+            comp_key = (comp.support_item_id, norm_code(ccode))
+            if comp_key in price_by_comp_key and abs(price_by_comp_key[comp_key] - comp.unit_price_cny) > 1e-9:
+                problems.append(f"component '{si}' with item code '{ccode}' has different prices -- the same "
+                                f"item and code must have the same price, or use a different item code")
+            price_by_comp_key.setdefault(comp_key, comp.unit_price_cny)
     if problems:
         raise HTTPException(422, "Cannot export yet: " + "; ".join(sorted(set(problems))))
 

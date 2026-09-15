@@ -13,7 +13,18 @@ export default function AdminProducts() {
     api.get("/products").then((r) => setProducts(r.data));
   }, []);
 
-  const categories = [...new Set(products.map((p) => p.category))];
+  // Category options follow the selected type, so "Wetworks" only lists
+  // wetworks categories.
+  const categories = [...new Set(
+    products.filter((p) => !productType || p.product_type === productType).map((p) => p.category)
+  )].sort();
+
+  const changeType = (value) => {
+    setProductType(value);
+    if (category && !products.some((p) => p.category === category && (!value || p.product_type === value))) {
+      setCategory("");
+    }
+  };
   const filtered = products.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) &&
@@ -37,7 +48,7 @@ export default function AdminProducts() {
           placeholder="Search products..."
           className="border rounded-md px-3 py-2 text-sm flex-1 max-w-sm bg-white"
         />
-        <select value={productType} onChange={(e) => setProductType(e.target.value)} className="border rounded-md px-3 py-2 text-sm bg-white">
+        <select value={productType} onChange={(e) => changeType(e.target.value)} className="border rounded-md px-3 py-2 text-sm bg-white">
           <option value="">All types</option>
           {PROJECT_TYPES.map((t) => (
             <option key={t.value} value={t.value}>{t.label}</option>

@@ -23,8 +23,14 @@ elif DATABASE_URL.startswith("postgresql://"):
     parts = urlsplit(DATABASE_URL)
     DATABASE_URL = urlunsplit(("postgresql+pg8000", parts.netloc, parts.path, "", ""))
     connect_args = {"ssl_context": True}
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# pool_pre_ping: a warm serverless instance keeps its pooled connection
+# between requests, but hosted Postgres (Neon etc.) drops idle ones -- ping
+# and transparently reconnect instead of failing the first request after idle.
+engine = create_engine(DATABASE_URL, connect_args=connect_args, pool_pre_ping=True, pool_recycle=300)
+# expire_on_commit=False: sessions are request-scoped, and the estimate
+# endpoints commit recomputed costs and then serialize the same objects --
+# expiring them on commit would re-SELECT every row one lazy load at a time.
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, expire_on_commit=False, bind=engine)
 Base = declarative_base()
 
 

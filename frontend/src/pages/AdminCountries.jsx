@@ -69,8 +69,8 @@ function NewCountryModal({ onClose, onCreated }) {
       <form onSubmit={submit} className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 space-y-3">
         <h2 className="text-lg font-semibold text-slate-800">Add a country</h2>
         <p className="text-xs text-slate-500">
-          Creates an empty rate-card template you (or an admin) fill in afterward -- labor wages & expenses,
-          working days/month, and material prices per support item.
+          Starts as a copy of Saudi Arabia -- its whole rate card (currencies, working days, allowances) and
+          every material price. Adjust them for this country afterward.
         </p>
         <div>
           <label className="text-xs text-slate-500">Country name</label>

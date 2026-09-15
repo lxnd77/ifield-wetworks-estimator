@@ -357,3 +357,39 @@ class EstimateLineIn(BaseModel):
     dimension: Optional[str] = None
     item_code: Optional[str] = None
     factory_work_cost_cny: Optional[float] = None
+
+
+class EstimateLocationSaveIn(BaseModel):
+    """A location in a whole-estimate save. Existing locations carry `id`;
+    new ones carry a client-side `key` that new lines reference."""
+    id: Optional[int] = None
+    key: Optional[str] = None
+    name: str
+    sort_order: int = 0
+
+
+class EstimateLineSaveIn(EstimateLineIn):
+    """A line in a whole-estimate save: `id` for an existing line (omitted
+    for a new one), and either `location_id` or the `location_key` of a
+    location created in the same save."""
+    id: Optional[int] = None
+    location_id: Optional[int] = None
+    location_key: Optional[str] = None
+
+
+class EstimateSaveIn(BaseModel):
+    """The project's full draft estimate. Locations/lines missing from the
+    lists are deleted; the whole save is one transaction."""
+    locations: List[EstimateLocationSaveIn]
+    lines: List[EstimateLineSaveIn]
+
+
+class ProjectWorkspaceOut(BaseModel):
+    """Everything the estimator screen needs in one response. The catalog
+    lists are only included on the initial page load."""
+    project: ProjectOut
+    lines: List[EstimateLineOut]
+    product_costs: dict[int, ProductCostOut]
+    products: Optional[List[ProductOut]] = None
+    selling_companies: Optional[List[SellingCompanyOut]] = None
+    support_items: Optional[List[SupportItemOut]] = None

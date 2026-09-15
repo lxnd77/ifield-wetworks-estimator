@@ -119,9 +119,8 @@ Furniture products carry **no fixed recipe** -- component quantities *and prices
 vary by project. On each furniture estimate line the estimator adds components
 from the support-item catalog (filtered to `purchase_category` in **Fabric /
 Stone / Metal / Accessories**) and types, per component: the `qty_per_unit`, the
-purchase **price in CNY** (furniture is China-sourced), and a **project-unique
-item code**. Recompute only re-prices those rows -- it never adds or removes
-them.
+purchase **price in CNY** (furniture is China-sourced), and an **item code**.
+Recompute only re-prices those rows -- it never adds or removes them.
 
 Every furniture line that has components also carries a **Factory Work** charge
 -- a per-project assembly price in CNY, quantity always 1, entered on the line.
@@ -141,12 +140,32 @@ Odoo as `overhead_cost_percentage` rather than baking it into prices.
 `project.cny_per_usd` defaults to 7.2 and is editable per project (Edit project
 code / … / CNY rate) so a saved estimate doesn't move when the rate does.
 
-In all three exports the finished-product and component names are qualified as
-`<name> <project code> <item code>` so two line items of the same product, or a
-support item re-priced on another line, stay distinct Odoo records. Every
-furniture line with a BOM needs its own project-unique item code, a Factory Work
-cost, and every component priced with a project-unique code -- the app refuses to
-export until they're all set.
+Every furniture line with a BOM needs an item code and a Factory Work cost, and
+every component needs a price and an item code -- the app refuses to export
+until they're all set. Because an exported product is project + product + code
+(see "Item codes" below), lines that share a product and item code must carry
+the **same BOM** (components, quantities, prices, Factory Work), and components
+that share a support item and code must carry the **same price**; use a
+different item code otherwise.
+
+### Item codes (every project type)
+
+An exported product is identified by **project + product + item code**. The
+**project code is required** (set at creation; older projects without one can't
+export until it's set). In all three exports:
+
+- every finished product, BOM component and Factory Work row is named
+  `<name> <project code> <item code>`;
+- every code column -- Sale Estimation `default_code` (line and component), BOM
+  `reference`, Product Import `default_code` -- carries
+  `<project code> <item code>`, or **just the project code** when the item code
+  is blank (wetworks line and "BOM codes" item codes are optional; furniture
+  ones are required);
+- two lines with the same product and code are the same product: one mrp.bom,
+  one product-import row;
+- the Odoo external id columns are left blank -- the catalog's `odoo_id` belongs
+  to the shared catalog record, and sending it with a project-specific name
+  would make Odoo rename that record.
 
 ### Labor cost (wetworks only)
 
@@ -197,8 +216,10 @@ entered per estimate line -- so they're never "needs setup".
 
 ## Adding a country
 
-Admin → Countries → **+ Add a country** creates an empty template (flagged
-"needs data"). Only **Wetworks** projects use a country's rate card -- open it
+Admin → Countries → **+ Add a country** creates a copy of Saudi Arabia (KSA) --
+its whole rate card and every material price -- flagged "needs data" until you
+save the new country's own rate card. Admins can delete a country that no
+project uses (never KSA, the copy source). Only **Wetworks** projects use a country's rate card -- open it
 to fill in currencies/FX rates, working days/month, wages overhead %, salaries,
 and per-worker expenses (the fields the KSA sample workbook has). Wetworks
 material prices are set per support item -- from a product's page
@@ -269,7 +290,8 @@ docker-compose.yml
 - Whether furniture door hardware (hinges, locks, handles) is best classified
   `Metal` vs `Accessories` is a judgement call the importer made -- reclassify
   from the support-items admin screen if needed.
-- Only KSA is fully seeded; other countries start as empty templates.
+- Only KSA is fully seeded; other countries start as a copy of KSA's rates and
+  prices, to be adjusted.
 - Wetworks: only Tile/Ceiling/Paint/Punning/DryWall/IPS/Plaster are fully
   automated; Stone, Counters, and a couple of composite Flooring items need BOM
   + coverage data. The Punning sheet's "freight cost" sub-formula wasn't

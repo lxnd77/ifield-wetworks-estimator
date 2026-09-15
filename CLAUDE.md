@@ -44,9 +44,24 @@ material_cost_per_unit = (Σ component_usd + factory_work$) * (1 + product.ohp_p
 Consumable % does **not** apply to furniture; OHP % loads on the line total
 (components + Factory Work), not per component. `Project.cny_per_usd` is
 snapshotted from `project_types.DEFAULT_CNY_PER_USD` at creation and editable
-per project. Every furniture line with components must have a project-unique
-`item_code` and a `factory_work_cost_cny`; every component must have a price
-and a project-unique `item_code` — all enforced on save and on export.
+per project. Every furniture line with components must have an `item_code`
+and a `factory_work_cost_cny`; every component must have a price and an
+`item_code` — enforced on save and on export.
+
+### Item codes (all project types)
+
+An exported product = **project + product + item code**. `Project.code` is
+required (`_validate_project_payload`; export refuses a legacy project without
+one). Every export name is `qualified_name()` = `<name> <project code> <item
+code>`, and every code column (`reference_code()`) is `<project code> <item
+code>`, falling back to just the project code when the item code is blank.
+Keys compare via `export_excel.norm_code` (trimmed, case-insensitive). Codes
+may repeat: same product + code on two furniture lines must carry the same BOM
+(checked at export, `_furniture_bom_signature` — not on save, since lines are
+mid-edit then); same support item + code must carry the same CNY price
+(checked on component save and export). Export id columns (`product_id/id`,
+product-import `id`) are deliberately blank: catalog `odoo_id`s belong to the
+shared catalog record, not the project-specific product.
 
 > **History (furniture extension):** the app was "I-Field Wetworks
 > Estimator"; `WetworksProduct`/`wetworks_products` were renamed to
@@ -110,9 +125,24 @@ docker compose up --build       # app on :80, api docs on :8000/docs
   component quantities; both apply the product's consumable%/OHP% markup to
   `role == "primary"` lines only.
 - `backend/app/service.py` — recompute + line/project totals, shared by API
-  and export. `_recompute_all_lines` is called on every read of estimate
-  lines/summary/export, so estimate costs are always a live view over current
-  master data. Branches on `project_types.bom_per_line`:
+  and export. `main._recompute_all_lines` is called on every read of estimate
+  lines/summary/workspace/export, so estimate costs are always a live view
+  over current master data. It eager-loads everything and reads the country
+  price table once (production is Vercel + hosted Postgres, where every query
+  is a slow round trip — keep it that way), and reads only commit when a value
+  moved (`_commit_if_changed`).
+- Estimator screen API: `GET /api/projects/{id}/workspace` is the single page
+  load (project, recomputed lines, cost map, catalog lists; `?catalog=false`
+  for refreshes), and `PUT /api/projects/{id}/estimate` saves the whole draft
+  (locations + lines, new ones by client `key`) in **one transaction** —
+  replaces the old per-row request loop that could half-save and then
+  duplicate lines on retry. Sessions use `expire_on_commit=False`, so code
+  that adds/removes child rows must go through the relationship collection
+  (e.g. `line.components.append/remove`), not bare `db.add`/`db.delete`, or
+  the response serializes stale collections.
+- Countries: `POST /api/countries` copies the `KSA` country's whole rate card
+  + every material price (`SOURCE_COUNTRY_CODE`); `DELETE` is admin-only and
+  refuses KSA or a country used by a project. Branches on `project_types.bom_per_line`:
   `_recompute_furniture_line` re-prices user components + `factory_work_cost`
   and never rebuilds them; the wetworks path rebuilds from the recipe.
 - `backend/app/models.py` — schema. Key relationships: `Product` has
