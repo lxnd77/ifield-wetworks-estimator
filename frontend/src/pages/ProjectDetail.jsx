@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo, useCallback, Fragment } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import api, { money, num } from "../api";
 import { laborApplies, bomPerLine, typeLabel, FURNITURE_BOM_CATEGORIES } from "../projectTypes";
+import { useCurrentUser } from "../components/RequireAuth";
 
 let tempIdCounter = 0;
 const newTempId = () => `new-${++tempIdCounter}-${Date.now()}`;
@@ -82,6 +83,8 @@ const toDraftLine = (l) => ({
 
 export default function ProjectDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const currentUser = useCurrentUser();
   const [project, setProject] = useState(null);
   const [products, setProducts] = useState([]);
   const [costMap, setCostMap] = useState({});
@@ -298,6 +301,17 @@ export default function ProjectDetail() {
     }
   };
 
+  const deleteProject = async () => {
+    if (!confirm(`Delete "${project.name}"? This removes all its locations and estimate lines and cannot be undone.`)) return;
+    setError("");
+    try {
+      await api.delete(`/projects/${id}`);
+      navigate("/");
+    } catch (err) {
+      setError(errorText(err, "Could not delete the project."));
+    }
+  };
+
   if (!project) {
     return error
       ? <div className="text-xs text-red-600">{error} <button onClick={load} className="text-ruby hover:underline">Retry</button></div>
@@ -341,6 +355,12 @@ export default function ProjectDetail() {
             <button onClick={() => download("product-import")} className="text-sm px-3 py-2 rounded-md border bg-white hover:bg-slate-50">
               Export Product Import for Odoo (.zip)
             </button>
+            {currentUser?.is_admin && (
+              <button onClick={deleteProject} title="Delete project"
+                className="text-sm px-3 py-2 rounded-md border border-red-200 text-red-600 bg-white hover:bg-red-50">
+                Delete project
+              </button>
+            )}
           </div>
         </div>
         {dirty && !saving && (
