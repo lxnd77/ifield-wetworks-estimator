@@ -136,8 +136,9 @@ function NewProjectModal({ countries, sellingCompanies, onClose, onCreated }) {
             <input required value={form.name} onChange={set("name")} className="w-full border rounded-md px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="text-xs text-slate-500">Code</label>
-            <input value={form.code} onChange={set("code")} placeholder="e.g. FLH" className="w-full border rounded-md px-3 py-2 text-sm" />
+            <label className="text-xs text-slate-500">Code *</label>
+            <input required value={form.code} onChange={set("code")} placeholder="e.g. FLH" title="Prefixes every item code in the exports"
+              className="w-full border rounded-md px-3 py-2 text-sm" />
           </div>
         </div>
         <div>

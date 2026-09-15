@@ -58,6 +58,28 @@ const lineFields = (l) => ({
 });
 const locFields = (l) => ({ name: l.name });
 
+// The Odoo reference an item exports under: project code + item code, or
+// just the project code when the item code is blank (mirrors
+// export_excel.reference_code).
+const referenceCode = (projectCode, itemCode) =>
+  [projectCode, itemCode].map((s) => (s || "").trim()).filter(Boolean).join(" ");
+
+// FastAPI errors: a string detail for our own 4xx, a list for schema errors.
+export function errorText(err, fallback) {
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) return detail.map((d) => d.msg).join("; ");
+  if (!err?.response) return `${fallback} (network error -- check your connection and try again)`;
+  return fallback;
+}
+
+const toDraftLine = (l) => ({
+  id: l.id, location_id: l.location_id, product_id: l.product_id, qty: l.qty,
+  margin_pct_override: l.margin_pct_override, drawing_no: l.drawing_no, remark: l.remark,
+  description: l.description, dimension: l.dimension, item_code: l.item_code,
+  factory_work_cost_cny: l.factory_work_cost_cny,
+});
+
 export default function ProjectDetail() {
   const { id } = useParams();
   const [project, setProject] = useState(null);
@@ -75,36 +97,43 @@ export default function ProjectDetail() {
   const [componentsByLineId, setComponentsByLineId] = useState({});
   const [lineDataById, setLineDataById] = useState({});
 
+  // Server-computed line data (costs, components). Doesn't touch the
+  // location/line drafts, so unsaved edits survive a component change.
+  const applyLineData = (data) => {
+    setProject(data.project);
+    setCostMap(data.product_costs);
+    setComponentsByLineId(Object.fromEntries(data.lines.map((l) => [l.id, l.components])));
+    setLineDataById(Object.fromEntries(data.lines.map((l) => [l.id, l])));
+  };
+
+  // A full workspace (initial load / after Save): also resets the drafts to
+  // what the server now holds.
+  const applyWorkspace = (data) => {
+    applyLineData(data);
+    if (data.products) setProducts(data.products);
+    if (data.selling_companies) setSellingCompanies(data.selling_companies);
+    if (data.support_items) setSupportItems(data.support_items);
+    const locs = data.project.locations;
+    const lines = data.lines.map(toDraftLine);
+    setSavedLocations(locs);
+    setSavedLines(lines);
+    setDraftLocations(locs);
+    setDraftLines(lines);
+  };
+
+  // One request for everything the screen needs (was six).
   const load = useCallback(() => {
-    Promise.all([
-      api.get(`/projects/${id}`),
-      api.get(`/projects/${id}/estimate-lines`),
-      api.get(`/projects/${id}/product-costs`),
-      api.get("/products"),
-      api.get("/selling-companies"),
-      api.get("/support-items"),
-    ]).then(([projectRes, linesRes, costsRes, productsRes, sellingRes, supportRes]) => {
-      setProject(projectRes.data);
-      setProducts(productsRes.data);
-      setCostMap(costsRes.data);
-      setSellingCompanies(sellingRes.data);
-      setSupportItems(supportRes.data);
-      const locs = projectRes.data.locations;
-      const lines = linesRes.data.map((l) => ({
-        id: l.id, location_id: l.location_id, product_id: l.product_id, qty: l.qty,
-        margin_pct_override: l.margin_pct_override, drawing_no: l.drawing_no, remark: l.remark,
-        description: l.description, dimension: l.dimension, item_code: l.item_code,
-        factory_work_cost_cny: l.factory_work_cost_cny,
-      }));
-      setSavedLocations(locs);
-      setSavedLines(lines);
-      setDraftLocations(locs);
-      setDraftLines(lines);
-      setComponentsByLineId(Object.fromEntries(linesRes.data.map((l) => [l.id, l.components])));
-      setLineDataById(Object.fromEntries(linesRes.data.map((l) => [l.id, l])));
-    });
+    setError("");
+    api.get(`/projects/${id}/workspace`)
+      .then((res) => applyWorkspace(res.data))
+      .catch((err) => setError(errorText(err, "Could not load the project.")));
   }, [id]);
-  useEffect(load, [load]);
+  useEffect(() => { load(); }, [load]);
+
+  const refreshLineData = async () => {
+    const res = await api.get(`/projects/${id}/workspace`, { params: { catalog: false } });
+    applyLineData(res.data);
+  };
 
   const dirty = useMemo(() => {
     if (draftLocations.length !== savedLocations.length || draftLines.length !== savedLines.length) return true;
@@ -169,41 +198,32 @@ export default function ProjectDetail() {
     setDraftLines((prev) => prev.filter((l) => l.id !== lineId));
   };
 
+  // Sends the whole draft in one request; the server applies it in a single
+  // transaction (all or nothing) and returns the saved workspace. Returns
+  // true on success.
   const doSave = async () => {
     setSaving(true);
     setError("");
     try {
-      const idMap = {};
-      for (const loc of draftLocations) {
-        if (isTemp(loc.id)) {
-          const res = await api.post(`/projects/${id}/locations`, { name: loc.name });
-          idMap[loc.id] = res.data.id;
-        }
-      }
-      const draftLocIds = new Set(draftLocations.filter((l) => !isTemp(l.id)).map((l) => l.id));
-      for (const loc of savedLocations) {
-        if (!draftLocIds.has(loc.id)) await api.delete(`/locations/${loc.id}`);
-      }
-      const removedLocationIds = new Set(savedLocations.filter((l) => !draftLocIds.has(l.id)).map((l) => l.id));
-      const draftLineIds = new Set(draftLines.filter((l) => !isTemp(l.id)).map((l) => l.id));
-      for (const line of savedLines) {
-        if (!draftLineIds.has(line.id) && !removedLocationIds.has(line.location_id)) {
-          await api.delete(`/estimate-lines/${line.id}`);
-        }
-      }
-      for (const line of draftLines) {
-        const resolvedLocationId = isTemp(line.location_id) ? idMap[line.location_id] : line.location_id;
-        const payload = { ...lineFields(line), location_id: resolvedLocationId };
-        if (isTemp(line.id)) {
-          await api.post(`/projects/${id}/estimate-lines`, payload);
-        } else {
-          const prev = savedLines.find((s) => s.id === line.id);
-          if (!prev || JSON.stringify(lineFields(prev)) !== JSON.stringify(lineFields(line))) {
-            await api.put(`/estimate-lines/${line.id}`, payload);
-          }
-        }
-      }
-      load();
+      const payload = {
+        locations: draftLocations.map((l, i) => (
+          isTemp(l.id)
+            ? { key: l.id, name: l.name, sort_order: l.sort_order ?? i }
+            : { id: l.id, name: l.name, sort_order: l.sort_order ?? i }
+        )),
+        lines: draftLines.map((l) => ({
+          ...lineFields(l),
+          id: isTemp(l.id) ? null : l.id,
+          location_id: isTemp(l.location_id) ? null : l.location_id,
+          location_key: isTemp(l.location_id) ? l.location_id : null,
+        })),
+      };
+      const res = await api.put(`/projects/${id}/estimate`, payload);
+      applyWorkspace(res.data);
+      return true;
+    } catch (err) {
+      setError(errorText(err, "Could not save your changes -- nothing was saved."));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -218,14 +238,19 @@ export default function ProjectDetail() {
   };
 
   // Furniture component edits hit the API immediately (they're not part of
-  // the line draft) and then reload so per-line costs refresh.
+  // the line draft) and then refresh the server-computed line data --
+  // without resetting any unsaved line edits.
   const componentCall = async (fn) => {
     setError("");
     try {
       await fn();
-      load();
     } catch (err) {
-      setError(err?.response?.data?.detail || "Could not save the component.");
+      setError(errorText(err, "Could not save the component."));
+    }
+    try {
+      await refreshLineData();
+    } catch (err) {
+      setError(errorText(err, "Could not refresh the estimate."));
     }
   };
   const addComponent = (lineId, payload) =>
@@ -244,14 +269,15 @@ export default function ProjectDetail() {
       default_margin_pct: project.default_margin_pct, display_currency: project.display_currency,
       cny_per_usd: project.cny_per_usd, notes: project.notes, ...patch,
     };
-    const res = await api.put(`/projects/${id}`, payload);
-    setProject(res.data);
+    await api.put(`/projects/${id}`, payload);
+    // Code / CNY rate changes move line costs and references.
+    await refreshLineData();
   };
 
   const download = async (kind) => {
+    if (dirty && !(await doSave())) return;
     setError("");
     try {
-      if (dirty) await doSave();
       const res = await api.get(`/projects/${id}/export/${kind}`, { responseType: "blob" });
       const disposition = res.headers["content-disposition"] || "";
       const match = disposition.match(/filename="?([^"]+)"?/);
@@ -272,7 +298,11 @@ export default function ProjectDetail() {
     }
   };
 
-  if (!project) return <div className="text-ink/40 text-sm">Loading...</div>;
+  if (!project) {
+    return error
+      ? <div className="text-xs text-red-600">{error} <button onClick={load} className="text-ruby hover:underline">Retry</button></div>
+      : <div className="text-ink/40 text-sm">Loading...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -391,6 +421,7 @@ function ProjectMetaEditor({ project, sellingCompanies, onSave }) {
   const [sellingCompanyId, setSellingCompanyId] = useState(project.selling_company_id || "");
   const [cny, setCny] = useState(project.cny_per_usd ?? "");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     setCode(project.code || "");
@@ -400,20 +431,30 @@ function ProjectMetaEditor({ project, sellingCompanies, onSave }) {
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="text-xs text-ruby hover:underline mt-2">
-        Edit project code / selling company{furniture ? " / CNY rate" : ""}
-      </button>
+      <div className="mt-2">
+        {!project.code && (
+          <div className="text-xs text-amber-600 mb-1">
+            This project has no code yet -- set one before exporting (it prefixes every item code).
+          </div>
+        )}
+        <button onClick={() => setOpen(true)} className="text-xs text-ruby hover:underline">
+          Edit project code / selling company{furniture ? " / CNY rate" : ""}
+        </button>
+      </div>
     );
   }
 
   const submit = async (e) => {
     e.preventDefault();
     setSaving(true);
+    setError("");
     try {
-      const patch = { code: code || null, selling_company_id: sellingCompanyId ? Number(sellingCompanyId) : null };
+      const patch = { code: code.trim(), selling_company_id: sellingCompanyId ? Number(sellingCompanyId) : null };
       if (furniture) patch.cny_per_usd = cny === "" ? null : Number(cny);
       await onSave(patch);
       setOpen(false);
+    } catch (err) {
+      setError(errorText(err, "Could not save the project."));
     } finally {
       setSaving(false);
     }
@@ -422,8 +463,8 @@ function ProjectMetaEditor({ project, sellingCompanies, onSave }) {
   return (
     <form onSubmit={submit} className="flex flex-wrap items-end gap-2 mt-2 bg-white border rounded-md p-3">
       <div>
-        <label className="text-xs text-ink/60">Project code</label>
-        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. FLH" className="w-32 border rounded-md px-2 py-1.5 text-sm" />
+        <label className="text-xs text-ink/60">Project code *</label>
+        <input required value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. FLH" className="w-32 border rounded-md px-2 py-1.5 text-sm" />
       </div>
       <div>
         <label className="text-xs text-ink/60">Selling company</label>
@@ -446,6 +487,7 @@ function ProjectMetaEditor({ project, sellingCompanies, onSave }) {
       <button type="button" onClick={() => setOpen(false)} className="text-sm px-3 py-1.5 rounded-md border bg-white">
         Cancel
       </button>
+      {error && <div className="w-full text-xs text-red-600">{error}</div>}
     </form>
   );
 }
@@ -544,7 +586,9 @@ function LocationBlock({ location, lines, products, supportItems, showLabor, cos
                         </span>
                       )}
                     </td>
-                    <td className="px-2 py-2 text-ink/60">{l.item_code || <span className="text-ink/30">--</span>}</td>
+                    <td className="px-2 py-2 text-ink/60" title="Odoo reference: project code + item code">
+                      {referenceCode(project.code, l.item_code) || <span className="text-ink/30">--</span>}
+                    </td>
                     <td className="px-2 py-2 text-right">{num(l.qty, 1)} {product?.uom}</td>
                     <td className="px-2 py-2 text-right">{money(c.materialPerUnit)}</td>
                     {showLabor && <td className="px-2 py-2 text-right">{money(c.laborPerUnit)}</td>}
@@ -622,7 +666,6 @@ function FurnitureBomEditor({ line, product, components, supportItems, cnyPerUsd
   // Only the four furniture BOM categories -- wetworks recipe components
   // (Gypsum board, tile, ...) don't belong on a furniture line.
   const pickable = supportItems.filter((s) => FURNITURE_BOM_CATEGORIES.includes(s.purchase_category));
-  const usedCodes = components.map((c) => (c.item_code || "").toLowerCase());
   const fwCny = line.factory_work_cost_cny || 0;
 
   return (
@@ -649,7 +692,7 @@ function FurnitureBomEditor({ line, product, components, supportItems, cnyPerUsd
         </thead>
         <tbody>
           {components.map((c) => (
-            <FurnitureBomRow key={c.id} component={c} usedCodes={usedCodes}
+            <FurnitureBomRow key={c.id} component={c}
               onSave={(patch) => onUpdate(c.id, {
                 support_item_id: c.support_item_id, qty_per_unit: c.qty_per_unit,
                 unit_price_cny: c.unit_price_cny, item_code: c.item_code, ...patch,
@@ -677,7 +720,6 @@ function FurnitureBomEditor({ line, product, components, supportItems, cnyPerUsd
         <AddComponentForm
           supportItems={pickable}
           existing={components.map((c) => c.support_item_id)}
-          usedCodes={usedCodes}
           onCancel={() => setAdding(false)}
           onSubmit={(payload) => { onAdd(payload); setAdding(false); }}
         />
@@ -686,7 +728,10 @@ function FurnitureBomEditor({ line, product, components, supportItems, cnyPerUsd
   );
 }
 
-function FurnitureBomRow({ component, usedCodes, onSave, onDelete }) {
+// Item codes: an exported component is support item + code, so the same code
+// may repeat across items; the server rejects the same item + code at a
+// different price.
+function FurnitureBomRow({ component, onSave, onDelete }) {
   const [qty, setQty] = useState(component.qty_per_unit ?? "");
   const [price, setPrice] = useState(component.unit_price_cny ?? "");
   const [code, setCode] = useState(component.item_code || "");
@@ -696,9 +741,6 @@ function FurnitureBomRow({ component, usedCodes, onSave, onDelete }) {
     setCode(component.item_code || "");
   }, [component.qty_per_unit, component.unit_price_cny, component.item_code]);
 
-  const codeClash = code && code.toLowerCase() !== (component.item_code || "").toLowerCase()
-    && usedCodes.includes(code.toLowerCase());
-
   return (
     <tr className="border-b last:border-0">
       <td className="py-1.5">
@@ -707,9 +749,9 @@ function FurnitureBomRow({ component, usedCodes, onSave, onDelete }) {
       </td>
       <td className="py-1.5">
         <input value={code} onChange={(e) => setCode(e.target.value)}
-          onBlur={() => code.trim() && !codeClash && code !== (component.item_code || "") && onSave({ item_code: code.trim() })}
+          onBlur={() => code.trim() && code !== (component.item_code || "") && onSave({ item_code: code.trim() })}
           placeholder="e.g. FAB-01"
-          className={`w-24 border rounded px-1.5 py-1 text-xs ${codeClash ? "border-red-400" : ""}`} />
+          className="w-24 border rounded px-1.5 py-1 text-xs" />
       </td>
       <td className="py-1.5 text-right">
         <input type="number" step="0.0001" value={qty}
@@ -732,15 +774,14 @@ function FurnitureBomRow({ component, usedCodes, onSave, onDelete }) {
   );
 }
 
-function AddComponentForm({ supportItems, existing, usedCodes, onCancel, onSubmit }) {
+function AddComponentForm({ supportItems, existing, onCancel, onSubmit }) {
   const [supportItemId, setSupportItemId] = useState("");
   const [qty, setQty] = useState("1");
   const [price, setPrice] = useState("");
   const [code, setCode] = useState("");
   const [cat, setCat] = useState("");
   const options = supportItems.filter((s) => !existing.includes(s.id) && (!cat || s.purchase_category === cat));
-  const codeClash = code && usedCodes.includes(code.toLowerCase());
-  const valid = supportItemId && Number(qty) > 0 && Number(price) > 0 && code.trim() && !codeClash;
+  const valid = supportItemId && Number(qty) > 0 && Number(price) > 0 && code.trim();
 
   const submit = (e) => {
     e.preventDefault();
@@ -769,7 +810,7 @@ function AddComponentForm({ supportItems, existing, usedCodes, onCancel, onSubmi
       <div>
         <label className="text-[11px] text-ink/50">Item code</label>
         <input required value={code} onChange={(e) => setCode(e.target.value)} placeholder="FAB-01"
-          className={`w-24 border rounded px-1.5 py-1 text-xs ${codeClash ? "border-red-400" : ""}`} />
+          className="w-24 border rounded px-1.5 py-1 text-xs" />
       </div>
       <div>
         <label className="text-[11px] text-ink/50">Qty / unit</label>
@@ -781,7 +822,6 @@ function AddComponentForm({ supportItems, existing, usedCodes, onCancel, onSubmi
       </div>
       <button disabled={!valid} className="text-xs px-3 py-1.5 rounded bg-ruby text-white hover:bg-ruby-dark disabled:opacity-40">Add</button>
       <button type="button" onClick={onCancel} className="text-xs px-2 py-1.5 rounded border bg-white">Cancel</button>
-      {codeClash && <div className="w-full text-[11px] text-red-500">That item code is already used in this project.</div>}
     </form>
   );
 }
@@ -790,7 +830,7 @@ function BomCodeEditor({ components, onSave }) {
   return (
     <div>
       <div className="text-xs font-medium text-ink/60 mb-2">
-        BOM item codes -- used to build each material's Odoo reference (project code + this code).
+        BOM item codes -- each material exports as project code + this code (just the project code if blank).
       </div>
       <table className="w-full text-xs max-w-2xl">
         <thead>
@@ -889,8 +929,11 @@ function LineItemForm({ products, showLabor = true, furniture = false, initial, 
         <input type="number" step="0.1" placeholder="default" value={margin} onChange={(e) => setMargin(e.target.value)} className="w-24 border rounded-md px-2 py-1.5 text-sm" />
       </div>
       <div>
-        <label className="text-xs text-ink/60">Item code{furniture && " *"}</label>
-        <input value={itemCode} onChange={(e) => setItemCode(e.target.value)} placeholder="e.g. PT-01" className="w-24 border rounded-md px-2 py-1.5 text-sm" />
+        <label className="text-xs text-ink/60" title="Exports as project code + item code. Same product + same code = the same product.">
+          Item code{furniture ? " *" : ""}
+        </label>
+        <input value={itemCode} onChange={(e) => setItemCode(e.target.value)}
+          placeholder={furniture ? "e.g. CH-01" : "blank = project code"} className="w-28 border rounded-md px-2 py-1.5 text-sm" />
       </div>
       {furniture && (
         <div>

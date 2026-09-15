@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../api";
+import { useCurrentUser } from "../components/RequireAuth";
 
 const FIELD_GROUPS = [
   {
@@ -42,6 +43,20 @@ export default function AdminCountryDetail() {
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const currentUser = useCurrentUser();
+  const navigate = useNavigate();
+
+  const remove = async () => {
+    if (!confirm(`Delete ${country.name} and all of its rates and material prices? This can't be undone.`)) return;
+    setError("");
+    try {
+      await api.delete(`/countries/${id}`);
+      navigate("/admin/countries");
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Could not delete the country.");
+    }
+  };
 
   const load = () => {
     api.get(`/countries/${id}`).then((r) => {
@@ -49,7 +64,7 @@ export default function AdminCountryDetail() {
       setForm(r.data);
     });
   };
-  useEffect(load, [id]);
+  useEffect(() => { load(); }, [id]);
 
   if (!country || !form) return <div className="text-slate-400 text-sm">Loading...</div>;
 
@@ -118,7 +133,13 @@ export default function AdminCountryDetail() {
             {saving ? "Saving..." : "Save rate card"}
           </button>
           {saved && <span className="text-xs text-emerald-600">Saved. Existing project estimates in this country will recompute next time they're opened or edited.</span>}
+          {currentUser?.is_admin && country.code !== "KSA" && (
+            <button type="button" onClick={remove} className="ml-auto text-xs text-red-500 hover:underline">
+              Delete country
+            </button>
+          )}
         </div>
+        {error && <div className="text-xs text-red-600">{error}</div>}
       </form>
     </div>
   );

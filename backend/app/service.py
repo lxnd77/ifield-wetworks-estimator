@@ -8,7 +8,9 @@ from .calc import (
 )
 
 
-def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.EstimateLine:
+def recompute_estimate_line(db: Session, line: models.EstimateLine, price_lookup=None) -> models.EstimateLine:
+    """`price_lookup` may be passed in when recomputing many lines of one
+    project, so the country's price table is read once, not once per line."""
     project = line.project
     product = line.product
     country = project.country
@@ -16,7 +18,8 @@ def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.Es
     if project_types.bom_per_line(project.project_type):
         return _recompute_furniture_line(line)
 
-    price_lookup = price_lookup_factory(db, country.id)
+    if price_lookup is None:
+        price_lookup = price_lookup_factory(db, country.id)
     material = compute_material_cost(product.bom_lines, price_lookup, product.consumable_pct, product.ohp_pct)
     # Furniture projects price on material alone -- no coverage rate, no
     # labor. (compute_labor_cost also returns zero without a coverage rate,
@@ -37,7 +40,9 @@ def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.Es
     # delete-all/recreate, so a user-entered item_code (set during
     # estimation, independent of costing) survives a recompute triggered by
     # rate/BOM changes. Rows for support items no longer in the BOM are
-    # dropped.
+    # dropped. Rows are added/removed through the `line.components`
+    # collection (delete-orphan) so it stays accurate for the rest of the
+    # request -- the API serializes it right after recomputing.
     existing_by_support_item = {c.support_item_id: c for c in line.components}
     seen_support_item_ids = set()
     for comp in material.components:
@@ -51,17 +56,14 @@ def recompute_estimate_line(db: Session, line: models.EstimateLine) -> models.Es
         seen_support_item_ids.add(comp.support_item_id)
         row = existing_by_support_item.get(comp.support_item_id)
         if row is None:
-            row = models.EstimateLineComponent(
-                estimate_line_id=line.id,
-                support_item_id=comp.support_item_id,
-            )
-            db.add(row)
+            row = models.EstimateLineComponent(support_item_id=comp.support_item_id)
+            line.components.append(row)
         row.qty = rounded_qty
         row.unit_cost = comp.unit_price_usd
         row.total_cost = rounded_qty * price_per_uom
     for support_item_id, row in existing_by_support_item.items():
         if support_item_id not in seen_support_item_ids:
-            db.delete(row)
+            line.components.remove(row)
     return line
 
 
