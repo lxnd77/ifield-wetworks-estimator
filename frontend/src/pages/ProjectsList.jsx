@@ -10,6 +10,7 @@ export default function ProjectsList() {
   const [countries, setCountries] = useState([]);
   const [sellingCompanies, setSellingCompanies] = useState([]);
   const [showNew, setShowNew] = useState(false);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const load = () => {
@@ -18,6 +19,19 @@ export default function ProjectsList() {
     api.get("/selling-companies").then((r) => setSellingCompanies(r.data));
   };
   useEffect(load, []);
+
+  const deleteProject = async (e, p) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`Delete "${p.name}"? This removes all its locations and estimate lines and cannot be undone.`)) return;
+    setError("");
+    try {
+      await api.delete(`/projects/${p.id}`);
+      load();
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Could not delete the project.");
+    }
+  };
 
   return (
     <div>
@@ -31,6 +45,8 @@ export default function ProjectsList() {
         </button>
       </div>
 
+      {error && <div className="text-xs text-red-600 mb-3">{error}</div>}
+
       {projects.length === 0 && (
         <div className="text-slate-400 text-sm bg-white border rounded-lg p-8 text-center">
           No projects yet. Create one to start an estimate.
@@ -42,9 +58,9 @@ export default function ProjectsList() {
           <Link
             to={`/projects/${p.id}`}
             key={p.id}
-            className="bg-white border rounded-lg p-4 hover:shadow-md transition block"
+            className="bg-white border rounded-lg p-4 hover:shadow-md transition block relative"
           >
-            <div className="font-medium text-slate-800">
+            <div className="font-medium text-slate-800 pr-12">
               {p.name} {p.code && <span className="text-slate-400 font-normal">({p.code})</span>}
             </div>
             <div className="text-xs text-slate-400 mt-1">
@@ -55,6 +71,15 @@ export default function ProjectsList() {
             {p.client_name && <div className="text-xs text-slate-500 mt-2">Client: {p.client_name}</div>}
             {currentUser?.is_admin && p.owner && (
               <div className="text-xs text-ruby mt-1">Owner: {p.owner.username}</div>
+            )}
+            {currentUser?.is_admin && (
+              <button
+                onClick={(e) => deleteProject(e, p)}
+                title="Delete project"
+                className="absolute top-4 right-4 text-xs text-red-500 hover:text-red-700 hover:underline"
+              >
+                Delete
+              </button>
             )}
           </Link>
         ))}
