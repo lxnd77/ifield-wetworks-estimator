@@ -158,7 +158,14 @@ docker compose up --build       # app on :80, api docs on :8000/docs
   `Factory Work` component row (qty 1), and every furniture product /
   component name qualified as `<name> <project code> <item code>` via
   `qualified_name()` so repeated products / re-priced support items stay
-  distinct Odoo records.
+  distinct Odoo records. Product import is one workbook per company: a BOM
+  component goes on its `SupportItem.purchasing_company`'s workbook (falling
+  back to the product's — wetworks recipe items carry none), so furniture
+  lines, which are always Manufacture and whose products have no purchasing
+  company, fan out to whichever companies buy their items. Furniture Factory
+  Work always goes to `project_types.FACTORY_WORK_PURCHASING_COMPANY` (the
+  China entity). Export refuses a furniture component whose support item
+  has no purchasing company.
 - `backend/import_catalog.py` — loads a flat Odoo `product.template`
   workbook (`name | uom_id | standard_price | categ_id | Vendor`), upserting
   by name: `FFE / *` → loose furniture products, `Joinery / *` → fixed

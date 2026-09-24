@@ -61,7 +61,8 @@ def run(output_path: str):
                 for p in db.query(models.Product).order_by(models.Product.id)
             ],
             "support_items": [
-                _row(s, ["id", "name", "default_code", "odoo_id", "uom", "notes", "purchase_category", "default_vendor_id"])
+                _row(s, ["id", "name", "default_code", "odoo_id", "uom", "notes", "purchase_category", "default_vendor_id",
+                          "purchasing_company_id"])
                 for s in db.query(models.SupportItem).order_by(models.SupportItem.id)
             ],
             "bom_lines": [

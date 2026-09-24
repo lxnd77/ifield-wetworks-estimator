@@ -4740,7 +4740,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 2,
@@ -4750,7 +4751,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 4
+      "default_vendor_id": 4,
+      "purchasing_company_id": null
     },
     {
       "id": 3,
@@ -4760,7 +4762,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 4
+      "default_vendor_id": 4,
+      "purchasing_company_id": null
     },
     {
       "id": 4,
@@ -4770,7 +4773,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 4
+      "default_vendor_id": 4,
+      "purchasing_company_id": null
     },
     {
       "id": 5,
@@ -4780,7 +4784,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 4
+      "default_vendor_id": 4,
+      "purchasing_company_id": null
     },
     {
       "id": 6,
@@ -4790,7 +4795,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 3
+      "default_vendor_id": 3,
+      "purchasing_company_id": null
     },
     {
       "id": 7,
@@ -4800,7 +4806,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 3
+      "default_vendor_id": 3,
+      "purchasing_company_id": null
     },
     {
       "id": 8,
@@ -4810,7 +4817,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 3
+      "default_vendor_id": 3,
+      "purchasing_company_id": null
     },
     {
       "id": 9,
@@ -4820,7 +4828,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 3
+      "default_vendor_id": 3,
+      "purchasing_company_id": null
     },
     {
       "id": 10,
@@ -4830,7 +4839,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 3
+      "default_vendor_id": 3,
+      "purchasing_company_id": null
     },
     {
       "id": 11,
@@ -4840,7 +4850,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 3
+      "default_vendor_id": 3,
+      "purchasing_company_id": null
     },
     {
       "id": 12,
@@ -4850,7 +4861,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 13,
@@ -4860,7 +4872,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 14,
@@ -4870,7 +4883,8 @@
       "uom": "Lmt",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 15,
@@ -4880,7 +4894,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 16,
@@ -4890,7 +4905,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 17,
@@ -4900,7 +4916,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 18,
@@ -4910,7 +4927,8 @@
       "uom": "Boards",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 19,
@@ -4920,7 +4938,8 @@
       "uom": "Nos.",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 20,
@@ -4930,7 +4949,8 @@
       "uom": "Nos.",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 21,
@@ -4940,7 +4960,8 @@
       "uom": "Nos.",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 22,
@@ -4950,7 +4971,8 @@
       "uom": "Packets",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 23,
@@ -4960,7 +4982,8 @@
       "uom": "Box",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 24,
@@ -4970,7 +4993,8 @@
       "uom": "Box",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 25,
@@ -4980,7 +5004,8 @@
       "uom": "Box",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 26,
@@ -4990,7 +5015,8 @@
       "uom": "Pcs",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 27,
@@ -5000,7 +5026,8 @@
       "uom": "Drum",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 28,
@@ -5010,7 +5037,8 @@
       "uom": "Boards",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 4
+      "default_vendor_id": 4,
+      "purchasing_company_id": null
     },
     {
       "id": 29,
@@ -5020,7 +5048,8 @@
       "uom": "Boards",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 30,
@@ -5030,7 +5059,8 @@
       "uom": "Nos.",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 31,
@@ -5040,7 +5070,8 @@
       "uom": "Pcs",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 32,
@@ -5050,7 +5081,8 @@
       "uom": "Pcs",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 33,
@@ -5060,7 +5092,8 @@
       "uom": "Box",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 34,
@@ -5070,7 +5103,8 @@
       "uom": "Roll",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 35,
@@ -5080,7 +5114,8 @@
       "uom": "Pcs",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 36,
@@ -5090,7 +5125,8 @@
       "uom": "Boards",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 37,
@@ -5100,7 +5136,8 @@
       "uom": "Boards",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 1
+      "default_vendor_id": 1,
+      "purchasing_company_id": null
     },
     {
       "id": 38,
@@ -5110,7 +5147,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 39,
@@ -5120,7 +5158,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 40,
@@ -5130,7 +5169,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 41,
@@ -5140,7 +5180,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 42,
@@ -5150,7 +5191,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 43,
@@ -5160,7 +5202,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 5
+      "default_vendor_id": 5,
+      "purchasing_company_id": null
     },
     {
       "id": 44,
@@ -5170,7 +5213,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 5
+      "default_vendor_id": 5,
+      "purchasing_company_id": null
     },
     {
       "id": 45,
@@ -5180,7 +5224,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 5
+      "default_vendor_id": 5,
+      "purchasing_company_id": null
     },
     {
       "id": 46,
@@ -5190,7 +5235,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 47,
@@ -5200,7 +5246,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 48,
@@ -5210,7 +5257,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 49,
@@ -5220,7 +5268,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 50,
@@ -5230,7 +5279,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 51,
@@ -5240,7 +5290,8 @@
       "uom": "Drums",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 52,
@@ -5250,7 +5301,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 6
+      "default_vendor_id": 6,
+      "purchasing_company_id": null
     },
     {
       "id": 53,
@@ -5260,7 +5312,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 6
+      "default_vendor_id": 6,
+      "purchasing_company_id": null
     },
     {
       "id": 54,
@@ -5270,7 +5323,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 7
+      "default_vendor_id": 7,
+      "purchasing_company_id": null
     },
     {
       "id": 55,
@@ -5280,7 +5334,8 @@
       "uom": "Bags",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": null
     },
     {
       "id": 56,
@@ -5290,7 +5345,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 6
+      "default_vendor_id": 6,
+      "purchasing_company_id": null
     },
     {
       "id": 57,
@@ -5300,7 +5356,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 6
+      "default_vendor_id": 6,
+      "purchasing_company_id": null
     },
     {
       "id": 58,
@@ -5310,7 +5367,8 @@
       "uom": "LMT",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 4
+      "default_vendor_id": 4,
+      "purchasing_company_id": null
     },
     {
       "id": 59,
@@ -5320,7 +5378,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 7
+      "default_vendor_id": 7,
+      "purchasing_company_id": null
     },
     {
       "id": 60,
@@ -5330,7 +5389,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 7
+      "default_vendor_id": 7,
+      "purchasing_company_id": null
     },
     {
       "id": 61,
@@ -5340,7 +5400,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 7
+      "default_vendor_id": 7,
+      "purchasing_company_id": null
     },
     {
       "id": 62,
@@ -5350,7 +5411,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 6
+      "default_vendor_id": 6,
+      "purchasing_company_id": null
     },
     {
       "id": 63,
@@ -5360,7 +5422,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 7
+      "default_vendor_id": 7,
+      "purchasing_company_id": null
     },
     {
       "id": 64,
@@ -5370,7 +5433,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 7
+      "default_vendor_id": 7,
+      "purchasing_company_id": null
     },
     {
       "id": 65,
@@ -5380,7 +5444,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": null,
-      "default_vendor_id": 7
+      "default_vendor_id": 7,
+      "purchasing_company_id": null
     },
     {
       "id": 66,
@@ -5390,7 +5455,8 @@
       "uom": "Nos",
       "notes": null,
       "purchase_category": "Accessories",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 67,
@@ -5400,7 +5466,8 @@
       "uom": "Nos",
       "notes": null,
       "purchase_category": "Accessories",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 68,
@@ -5410,7 +5477,8 @@
       "uom": "Sqm",
       "notes": null,
       "purchase_category": "Stone",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 69,
@@ -5420,7 +5488,8 @@
       "uom": "Nos",
       "notes": null,
       "purchase_category": "Accessories",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 70,
@@ -5430,7 +5499,8 @@
       "uom": "Boards",
       "notes": null,
       "purchase_category": "Accessories",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 71,
@@ -5440,7 +5510,8 @@
       "uom": "Boards",
       "notes": null,
       "purchase_category": "Accessories",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 72,
@@ -5450,7 +5521,8 @@
       "uom": "Nos",
       "notes": null,
       "purchase_category": "Metal",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 73,
@@ -5460,7 +5532,8 @@
       "uom": "Nos",
       "notes": null,
       "purchase_category": "Metal",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 74,
@@ -5470,7 +5543,8 @@
       "uom": "Nos",
       "notes": null,
       "purchase_category": "Metal",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 75,
@@ -5480,7 +5554,8 @@
       "uom": "Nos",
       "notes": null,
       "purchase_category": "Metal",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 76,
@@ -5490,7 +5565,8 @@
       "uom": "Nos",
       "notes": null,
       "purchase_category": "Metal",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 77,
@@ -5500,7 +5576,8 @@
       "uom": "Nos",
       "notes": null,
       "purchase_category": "Metal",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 78,
@@ -5510,7 +5587,8 @@
       "uom": "Nos",
       "notes": null,
       "purchase_category": "Metal",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 79,
@@ -5520,7 +5598,8 @@
       "uom": "Nos",
       "notes": null,
       "purchase_category": "Metal",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 80,
@@ -5530,7 +5609,8 @@
       "uom": "m",
       "notes": null,
       "purchase_category": "Fabric",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 81,
@@ -5540,7 +5620,8 @@
       "uom": "m",
       "notes": null,
       "purchase_category": "Fabric",
-      "default_vendor_id": 26
+      "default_vendor_id": 26,
+      "purchasing_company_id": 3
     },
     {
       "id": 82,
@@ -5550,7 +5631,8 @@
       "uom": "m",
       "notes": null,
       "purchase_category": "Fabric",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 83,
@@ -5560,7 +5642,8 @@
       "uom": "m",
       "notes": null,
       "purchase_category": "Fabric",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 84,
@@ -5570,7 +5653,8 @@
       "uom": "m",
       "notes": null,
       "purchase_category": "Fabric",
-      "default_vendor_id": null
+      "default_vendor_id": null,
+      "purchasing_company_id": 3
     },
     {
       "id": 85,
@@ -5580,7 +5664,8 @@
       "uom": "m",
       "notes": null,
       "purchase_category": "Fabric",
-      "default_vendor_id": 27
+      "default_vendor_id": 27,
+      "purchasing_company_id": 3
     },
     {
       "id": 86,
@@ -5590,7 +5675,8 @@
       "uom": "m",
       "notes": null,
       "purchase_category": "Fabric",
-      "default_vendor_id": 27
+      "default_vendor_id": 27,
+      "purchasing_company_id": 3
     },
     {
       "id": 87,
@@ -5600,7 +5686,8 @@
       "uom": "m",
       "notes": null,
       "purchase_category": "Fabric",
-      "default_vendor_id": 28
+      "default_vendor_id": 28,
+      "purchasing_company_id": 3
     }
   ],
   "bom_lines": [

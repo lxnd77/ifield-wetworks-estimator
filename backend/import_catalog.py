@@ -135,6 +135,11 @@ def run(path, country_code=None, dry_run=False):
             stats["vendors"] += 1
         return v
 
+    # Newly imported support items are bought by the China entity (the
+    # furniture catalog is China-sourced); existing assignments are kept.
+    china_company = db.query(models.PurchasingCompany).filter_by(
+        name=project_types.FACTORY_WORK_PURCHASING_COMPANY).first()
+
     seen_products = set()   # (name, product_type)
     seen_support = set()    # name
 
@@ -159,6 +164,8 @@ def run(path, country_code=None, dry_run=False):
             si.purchase_category = _support_category(row["name"], subfamily)
             if vendor:
                 si.default_vendor_id = vendor.id
+            if si.purchasing_company_id is None and china_company:
+                si.purchasing_company_id = china_company.id
             db.flush()
             stats["support_new" if new else "support_updated"] += 1
             _maybe_price(db, country, si, row["price"], stats)

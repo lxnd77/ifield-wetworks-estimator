@@ -90,6 +90,7 @@ def run():
                 name=row["name"], default_code=row.get("default_code"), odoo_id=row.get("odoo_id"),
                 uom=row["uom"], notes=row.get("notes"), purchase_category=row.get("purchase_category"),
                 default_vendor_id=vendor_id_map.get(row.get("default_vendor_id")),
+                purchasing_company_id=purchasing_company_id_map.get(row.get("purchasing_company_id")),
             )
             db.add(si)
             db.flush()

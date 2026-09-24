@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.database import SessionLocal, engine
-from app import models, service, export_excel
+from app import models, service, export_excel, project_types
 from app.auth import hash_password
 
 
@@ -424,26 +424,81 @@ def test_bom_export_furniture_qualified_names_and_factory_work():
         db.close()
 
 
-def test_product_import_furniture_manufacture_and_factory_work_buy_row():
+def _purchasing_company(db, name):
+    pc = db.query(models.PurchasingCompany).filter_by(name=name).first()
+    if pc is None:
+        pc = models.PurchasingCompany(name=name)
+        db.add(pc)
+        db.flush()
+    return pc
+
+
+def test_product_import_furniture_routes_components_to_their_company():
+    """A furniture line is Manufacture on the selling sheet only; each
+    component goes on its support item's purchasing company's sheet (bought
+    from its vendor) and on the selling sheet (bought from that company);
+    Factory Work always goes to the China company."""
     db = SessionLocal()
     try:
         line = _built_line(db, "loose_furniture")
         sc = models.SellingCompany(name="SC ftest")
-        pc = models.PurchasingCompany(name="PC ftest")
-        db.add_all([sc, pc])
+        db.add(sc)
+        india = _purchasing_company(db, "PC india ftest")
+        china = _purchasing_company(db, project_types.FACTORY_WORK_PURCHASING_COMPANY)
+        vendor = models.Vendor(name="V stone ftest")
+        db.add(vendor)
         db.flush()
+        comp = line.components[0]
+        comp.support_item.purchasing_company_id = china.id
+        stone = models.SupportItem(name="SI stone ftest", uom="Sqm", purchase_category="Stone",
+                                   purchasing_company_id=india.id, default_vendor_id=vendor.id)
+        db.add(stone)
+        db.flush()
+        line.components.append(models.EstimateLineComponent(
+            support_item_id=stone.id, qty_per_unit=1.0, unit_price_cny=5.0, item_code="ST1",
+            qty=0.0, unit_cost=0.0, total_cost=0.0))
+        line.project.selling_company_id = sc.id
+        db.commit()
+        service.recompute_estimate_line(db, line)
+        db.commit()
+
+        books = {k: {r[1]: r for r in _sheet_rows(v)[1]}
+                 for k, v in export_excel.build_product_import_workbooks(db, line.project)}
+        assert set(books) == {"SC ftest", india.name, china.name}
+        product_name = f"{line.product.name} PJ {line.item_code}"
+        fabric_name = f"{comp.support_item.name} PJ {comp.item_code}"
+        stone_name = "SI stone ftest PJ ST1"
+        fw_name = f"Factory Work for {line.product.name} PJ {line.item_code}"
+
+        hk = books["SC ftest"]
+        assert hk[product_name][4].startswith("Manufacture") and hk[product_name][3] in (None, "")
+        assert hk[fabric_name][3] == china.name and hk[fabric_name][8] == round(comp.unit_cost, 4)
+        assert hk[stone_name][3] == india.name and hk[stone_name][4].startswith("Buy")
+        assert hk[fw_name][3] == china.name and hk[fw_name][7] == "Storable Product"
+        assert hk[fw_name][8] in (None, "")
+
+        assert set(books[india.name]) == {stone_name}
+        assert books[india.name][stone_name][3] == vendor.name
+        assert set(books[china.name]) == {fabric_name, fw_name}
+    finally:
+        db.close()
+
+
+def test_wetworks_components_fall_back_to_product_company():
+    db = SessionLocal()
+    try:
+        line = _built_line(db, "wetworks", with_coverage=True, item_code="WF1")
+        sc = models.SellingCompany(name="SC wfall")
+        db.add(sc)
+        pc = _purchasing_company(db, "PC wfall")
         line.project.selling_company_id = sc.id
         line.product.purchasing_company_id = pc.id
         db.commit()
-        books = dict(export_excel.build_product_import_workbooks(db, line.project))
-        _, sc_rows = _sheet_rows(books["SC ftest"])
-        by_name = {r[1]: r for r in sc_rows}
-        assert by_name[f"{line.product.name} PJ {line.item_code}"][4].startswith("Manufacture")
-        comp = line.components[0]
-        comp_row = by_name[f"{comp.support_item.name} PJ {comp.item_code}"]
-        assert comp_row[4].startswith("Buy") and comp_row[8] == round(comp.unit_cost, 4)
-        fw = by_name[f"Factory Work for {line.product.name} PJ {line.item_code}"]
-        assert fw[4].startswith("Buy") and fw[7] == "Storable Product" and fw[8] in (None, "")
+        books = {k: {r[1]: r for r in _sheet_rows(v)[1]}
+                 for k, v in export_excel.build_product_import_workbooks(db, line.project)}
+        comp_name = f"{line.components[0].support_item.name} PJ"
+        assert set(books["PC wfall"]) == {comp_name}
+        assert books["SC wfall"][comp_name][3] == "PC wfall"
     finally:
         db.close()
 
@@ -452,8 +507,11 @@ def _furniture_project(client, h, cid):
     prod = client.post("/api/products", headers=h, json={
         "name": "F chair", "uom": "Pcs", "category": "Seating",
         "product_type": "loose_furniture"}).json()
+    pc = client.post("/api/purchasing-companies", headers=h, json={
+        "name": f"PC {uuid.uuid4().hex[:8]}"}).json()["id"]
     si = client.post("/api/support-items", headers=h, json={
-        "name": "F fabric", "uom": "m", "purchase_category": "Fabric"}).json()["id"]
+        "name": "F fabric", "uom": "m", "purchase_category": "Fabric",
+        "purchasing_company_id": pc}).json()["id"]
     pid = client.post("/api/projects", headers=h, json={
         "name": "F proj", "country_id": cid, "project_type": "loose_furniture", "code": "FP"}).json()["id"]
     loc = client.post(f"/api/projects/{pid}/locations", headers=h, json={"name": "L"}).json()["id"]
@@ -622,6 +680,22 @@ def test_furniture_same_product_and_code_must_share_bom(client):
         "support_item_id": si, "qty_per_unit": 3, "unit_price_cny": 30, "item_code": "FAB"})
     r = client.get(f"/api/projects/{pid}/export/sale-estimation", headers=h)
     assert r.status_code == 422 and "same BOM" in r.json()["detail"]
+
+
+def test_furniture_export_requires_component_purchasing_company(client):
+    token = _login(client, "alice", "alicepass")
+    h = _auth(token)
+    prod, si, pid, loc = _furniture_project(client, h, _country_id(client, token))
+    r = _save(client, h, pid, [{"id": loc, "name": "L"}], [{
+        "product_id": prod, "qty": 1, "item_code": "CH-2", "factory_work_cost_cny": 50, "location_id": loc}])
+    lid = r.json()["lines"][0]["id"]
+    assert client.post(f"/api/estimate-lines/{lid}/components", headers=h, json={
+        "support_item_id": si, "qty_per_unit": 1, "unit_price_cny": 30, "item_code": "FAB"}).status_code == 200
+    assert client.get(f"/api/projects/{pid}/export/bom", headers=h).status_code == 200
+    client.put(f"/api/support-items/{si}", headers=h, json={
+        "name": "F fabric", "uom": "m", "purchase_category": "Fabric", "purchasing_company_id": None})
+    r = client.get(f"/api/projects/{pid}/export/bom", headers=h)
+    assert r.status_code == 422 and "no purchasing company" in r.json()["detail"]
 
 
 # ---- whole-estimate save + workspace ----
