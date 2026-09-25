@@ -13,3 +13,6 @@ frontend/dist/
 backend/uvicorn.log
 backend/uvicorn_*.log
 backend/naming_template.xlsx
+
+# local secrets (e.g. production DATABASE_URL)
+backend/.env*
