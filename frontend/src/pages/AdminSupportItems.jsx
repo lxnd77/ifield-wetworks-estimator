@@ -49,7 +49,7 @@ export default function AdminSupportItems() {
         className="border rounded-md px-3 py-2 text-sm flex-1 max-w-sm bg-white mb-4"
       />
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="bg-white border rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-slate-400 border-b bg-slate-50">
@@ -82,7 +82,7 @@ export default function AdminSupportItems() {
                   <select
                     value={item.default_vendor_id || ""}
                     onChange={(e) => save(item, { default_vendor_id: e.target.value ? Number(e.target.value) : null })}
-                    className="border rounded-md px-2 py-1 text-sm bg-white"
+                    className="w-60 border rounded-md px-2 py-1 text-sm bg-white"
                   >
                     <option value="">--</option>
                     {vendors.map((v) => (
@@ -94,7 +94,7 @@ export default function AdminSupportItems() {
                   <select
                     value={item.purchasing_company_id || ""}
                     onChange={(e) => save(item, { purchasing_company_id: e.target.value ? Number(e.target.value) : null })}
-                    className="border rounded-md px-2 py-1 text-sm bg-white"
+                    className="w-60 border rounded-md px-2 py-1 text-sm bg-white"
                   >
                     <option value="">-- (use product's)</option>
                     {purchasingCompanies.map((c) => (
