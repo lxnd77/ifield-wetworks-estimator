@@ -356,16 +356,18 @@ def build_product_import_workbooks(db, project: models.Project) -> list:
                         comp_default_code, comp_company_name, False, standard_price=standard_price)
             if furniture and line.components:
                 # Factory Work: a Buy line on both sheets, vendor = the Factory
-                # Work purchasing company (always the China entity), price left
-                # blank (it's project-specific and already on the
-                # sale-estimation component line).
+                # Work purchasing company (always the China entity), priced
+                # like a component: the line's CNY charge in USD (qty is 1).
                 fw_company = factory_work_company()
                 fw_company_name = fw_company.name if fw_company else ""
                 fw_name = factory_work_name(product, project, line.item_code)
                 fw_key = ("factory_work", product.id, norm_code(line.item_code))
                 fw_code = reference_code(project, line.item_code)
-                add_row(sheet_for(fw_company), fw_key, fw_name, fw_code, fw_company_name, False)
-                add_row(selling_sheet, fw_key, fw_name, fw_code, fw_company_name, False)
+                fw_price = round((line.factory_work_cost_cny or 0.0) / service.furniture_fx(project), 4)
+                add_row(sheet_for(fw_company), fw_key, fw_name, fw_code, fw_company_name, False,
+                        standard_price=fw_price)
+                add_row(selling_sheet, fw_key, fw_name, fw_code, fw_company_name, False,
+                        standard_price=fw_price)
         else:
             purchasing_vendor = product.default_vendor.name if product.default_vendor else ""
             add_row(purchasing_sheet, line_key, line_name, line_default_code,

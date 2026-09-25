@@ -475,11 +475,12 @@ def test_product_import_furniture_routes_components_to_their_company():
         assert hk[fabric_name][3] == china.name and hk[fabric_name][8] == round(comp.unit_cost, 4)
         assert hk[stone_name][3] == india.name and hk[stone_name][4].startswith("Buy")
         assert hk[fw_name][3] == china.name and hk[fw_name][7] == "Storable Product"
-        assert hk[fw_name][8] in (None, "")
+        assert hk[fw_name][8] == 7.0  # factory_work_cny 7.0 at 1 CNY/USD
 
         assert set(books[india.name]) == {stone_name}
         assert books[india.name][stone_name][3] == vendor.name
         assert set(books[china.name]) == {fabric_name, fw_name}
+        assert books[china.name][fw_name][8] == 7.0
     finally:
         db.close()
 
@@ -834,3 +835,21 @@ def test_furniture_support_item_gets_default_vendor(client):
     no_pc = client.post("/api/support-items", headers=h, json={
         "name": f"F {tag}", "uom": "Pcs", "purchase_category": "Metal"}).json()
     assert no_pc["default_vendor_id"] is None  # no company -> no country to name it after
+
+
+def test_product_import_factory_work_price_converted_from_cny():
+    db = SessionLocal()
+    try:
+        line = _make_line(db, "fixed_furniture", cny_per_usd=7.2, factory_work_cny=36.0,
+                          item_code="FWP", project_code="PJ")
+        service.recompute_estimate_line(db, line)
+        sc = models.SellingCompany(name="SC fwprice")
+        db.add(sc)
+        db.flush()
+        line.project.selling_company_id = sc.id
+        db.commit()
+        rows = {r[1]: r for r in _sheet_rows(
+            dict(export_excel.build_product_import_workbooks(db, line.project))["SC fwprice"])[1]}
+        assert rows[f"Factory Work for {line.product.name} PJ FWP"][8] == 5.0  # 36 / 7.2
+    finally:
+        db.close()
