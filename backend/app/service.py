@@ -147,3 +147,32 @@ def project_summary(db: Session, project: models.Project) -> dict:
         "line_count": len(project.estimate_lines),
         "needs_setup_count": needs_setup_count,
     }
+
+
+def furniture_default_vendor_name(country_name: str, purchase_category: str) -> str:
+    return f"Default {country_name} {purchase_category} Vendor"
+
+
+def assign_furniture_default_vendor(db: Session, si: models.SupportItem) -> None:
+    """A furniture BOM item (purchase_category in FURNITURE_BOM_CATEGORIES)
+    with no vendor gets "Default {purchasing company country} {category}
+    Vendor", created on first use. A real vendor is never replaced, and an
+    item without a purchasing company (or one with no country) is left
+    alone -- there's no country to name the vendor after."""
+    if si.default_vendor_id is not None:
+        return
+    if si.purchase_category not in project_types.FURNITURE_BOM_CATEGORIES:
+        return
+    pc = si.purchasing_company
+    if pc is None and si.purchasing_company_id is not None:
+        pc = db.get(models.PurchasingCompany, si.purchasing_company_id)
+    if pc is None or not (pc.country_name or "").strip():
+        return
+    name = furniture_default_vendor_name(pc.country_name.strip(), si.purchase_category)
+    vendor = db.query(models.Vendor).filter(models.Vendor.name == name).first()
+    if vendor is None:
+        vendor = models.Vendor(name=name)
+        db.add(vendor)
+        db.flush()
+    si.default_vendor_id = vendor.id
+    si.default_vendor = vendor

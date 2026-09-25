@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import openpyxl
 
 from app.database import SessionLocal
-from app import models, project_types
+from app import models, project_types, service
 
 
 # Support-item name -> purchase_category. Every furniture support item gets
@@ -126,14 +126,21 @@ def run(path, country_code=None, dry_run=False):
     def get_vendor(vname):
         if not vname:
             return None
-        v = vendor_cache.get(vname)
+        # Re-check the DB too: assign_furniture_default_vendor may have
+        # created this vendor since the cache was built.
+        v = vendor_cache.get(vname) or db.query(models.Vendor).filter_by(name=vname).first()
         if v is None:
             v = models.Vendor(name=vname)
             db.add(v)
             db.flush()
-            vendor_cache[vname] = v
             stats["vendors"] += 1
+        vendor_cache[vname] = v
         return v
+
+    # Newly imported support items are bought by the China entity (the
+    # furniture catalog is China-sourced); existing assignments are kept.
+    china_company = db.query(models.PurchasingCompany).filter_by(
+        name=project_types.FACTORY_WORK_PURCHASING_COMPANY).first()
 
     seen_products = set()   # (name, product_type)
     seen_support = set()    # name
@@ -159,6 +166,9 @@ def run(path, country_code=None, dry_run=False):
             si.purchase_category = _support_category(row["name"], subfamily)
             if vendor:
                 si.default_vendor_id = vendor.id
+            if si.purchasing_company_id is None and china_company:
+                si.purchasing_company_id = china_company.id
+            service.assign_furniture_default_vendor(db, si)
             db.flush()
             stats["support_new" if new else "support_updated"] += 1
             _maybe_price(db, country, si, row["price"], stats)

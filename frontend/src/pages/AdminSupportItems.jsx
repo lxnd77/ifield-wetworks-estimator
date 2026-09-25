@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 
-const PURCHASE_CATEGORIES = ["Paint", "Tile", "Stone", "Metal", "Other"];
+// Wetworks (Paint / Tile / Stone / Metal) + furniture (Fabric / Stone / Metal / Accessories).
+const PURCHASE_CATEGORIES = ["Paint", "Tile", "Stone", "Metal", "Fabric", "Accessories", "Other"];
 
 export default function AdminSupportItems() {
   const [items, setItems] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [purchasingCompanies, setPurchasingCompanies] = useState([]);
   const [search, setSearch] = useState("");
 
   const load = () => {
     api.get("/support-items").then((r) => setItems(r.data));
     api.get("/vendors").then((r) => setVendors(r.data));
+    api.get("/purchasing-companies").then((r) => setPurchasingCompanies(r.data));
   };
   useEffect(load, []);
 
@@ -24,6 +27,7 @@ export default function AdminSupportItems() {
       uom: item.uom,
       purchase_category: item.purchase_category,
       default_vendor_id: item.default_vendor_id,
+      purchasing_company_id: item.purchasing_company_id,
       ...patch,
     });
     setItems((prev) => prev.map((i) => (i.id === item.id ? res.data : i)));
@@ -34,7 +38,7 @@ export default function AdminSupportItems() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-slate-800">BOM / Support Items</h1>
         <div className="text-xs text-slate-500">
-          Purchase category gates which items get a code field during estimation (Paint / Tile / Stone / Metal).
+          Purchasing company decides which company's product import list the item goes on when it's used in a BOM.
         </div>
       </div>
 
@@ -53,6 +57,7 @@ export default function AdminSupportItems() {
               <th className="px-4 py-2 font-normal">UoM</th>
               <th className="px-4 py-2 font-normal">Purchase category</th>
               <th className="px-4 py-2 font-normal">Default vendor</th>
+              <th className="px-4 py-2 font-normal">Purchasing company</th>
               <th className="px-4 py-2 font-normal">Odoo id</th>
             </tr>
           </thead>
@@ -82,6 +87,18 @@ export default function AdminSupportItems() {
                     <option value="">--</option>
                     {vendors.map((v) => (
                       <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-2">
+                  <select
+                    value={item.purchasing_company_id || ""}
+                    onChange={(e) => save(item, { purchasing_company_id: e.target.value ? Number(e.target.value) : null })}
+                    className="border rounded-md px-2 py-1 text-sm bg-white"
+                  >
+                    <option value="">-- (use product's)</option>
+                    {purchasingCompanies.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </td>

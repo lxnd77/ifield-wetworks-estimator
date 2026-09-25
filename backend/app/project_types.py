@@ -61,6 +61,10 @@ FURNITURE_BOM_CATEGORIES = ["Fabric", "Stone", "Metal", "Accessories"]
 # Project.cny_per_usd, where an estimator can adjust it per project.
 DEFAULT_CNY_PER_USD = 7.2
 
+# The purchasing company (by name) that buys every furniture line's Factory
+# Work -- the product import export puts the Factory Work row on its workbook.
+FACTORY_WORK_PURCHASING_COMPANY = "GUANGZHOU DAKA TRADING CO.,LTD"
+
 VALUES = tuple(CONFIG)
 
 

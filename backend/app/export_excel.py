@@ -244,14 +244,24 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
 def build_product_import_workbooks(db, project: models.Project) -> list:
     """One workbook per participating company -- the project's selling
     company plus every distinct purchasing company used by its line items'
-    products -- for importing product.template records into Odoo. Returns a
-    list of (company_name, BytesIO) pairs, one per company that ended up
-    with at least one row.
+    products or their BOM components -- for importing product.template
+    records into Odoo. Returns a list of (company_name, BytesIO) pairs, one
+    per company that ended up with at least one row.
+
+    A BOM component's purchasing company is its support item's own
+    `purchasing_company`, falling back to the line product's (wetworks
+    recipe items carry none, so a wetworks product's company buys its whole
+    recipe). Furniture products have no purchasing company -- each of their
+    components goes to whichever company buys that item -- and a furniture
+    line's Factory Work always goes to
+    project_types.FACTORY_WORK_PURCHASING_COMPANY. Below, "the purchasing
+    company" of a component means this resolved company.
 
     Placement rules -- a line item's product is what's manufactured (or
     bought whole) by its purchasing company, then bought from there by the
     selling company for resale to the client.
-      - Manufacture line (product has >=1 BOM lines): the finished product
+      - Manufacture line (product has >=1 BOM lines, or a furniture line
+        with >=1 components): the finished product
         gets a row ONLY on the selling company's workbook, as Manufacture,
         with NO vendor (it's assembled in-house, not bought from anyone --
         the line item itself is never placed on the purchasing company's
@@ -267,9 +277,9 @@ def build_product_import_workbooks(db, project: models.Project) -> list:
         own default vendor) and the selling company's workbook (Buy,
         vendor = the purchasing company).
 
-    A line whose product has no purchasing company set only gets its
-    selling-side row (there's no purchasing workbook to place components or
-    the Buy-line row in). If the project has no selling company set,
+    A component (or Buy line) with no resolved purchasing company only gets
+    its selling-side row, with a blank vendor (there's no purchasing
+    workbook to place it in). If the project has no selling company set,
     Buy lines and BOM components still get their purchasing-side row, but
     Manufacture line items get no row anywhere (they only ever go on the
     selling sheet).
@@ -300,6 +310,16 @@ def build_product_import_workbooks(db, project: models.Project) -> list:
             "On ordered quantities", "Ordered quantities", "Storable Product", standard_price,
         ])
 
+    fw_company_cache = []
+
+    def factory_work_company():
+        # Looked up once, and only when a furniture line has Factory Work.
+        if not fw_company_cache:
+            fw_company_cache.append(db.query(models.PurchasingCompany).filter(
+                models.PurchasingCompany.name == project_types.FACTORY_WORK_PURCHASING_COMPANY
+            ).first())
+        return fw_company_cache[0]
+
     selling_sheet = sheet_for(project.selling_company)
     furniture = project_types.bom_per_line(project.project_type)
 
@@ -321,24 +341,31 @@ def build_product_import_workbooks(db, project: models.Project) -> list:
         if is_manufacture:
             for comp in line.components:
                 support_item = comp.support_item
+                # The component's own purchasing company buys it; fall back to
+                # the product's (wetworks recipe items carry none).
+                comp_company = support_item.purchasing_company or product.purchasing_company
+                comp_company_name = comp_company.name if comp_company else ""
                 vendor_name = support_item.default_vendor.name if support_item.default_vendor else ""
                 key = ("support_item", support_item.id, norm_code(comp.item_code))
                 comp_name = component_export_name(project, comp)
                 comp_default_code = reference_code(project, comp.item_code)
                 standard_price = round(comp.unit_cost, 4)
-                add_row(purchasing_sheet, key, comp_name,
+                add_row(sheet_for(comp_company), key, comp_name,
                         comp_default_code, vendor_name, False, standard_price=standard_price)
                 add_row(selling_sheet, key, comp_name,
-                        comp_default_code, purchasing_company_name, False, standard_price=standard_price)
+                        comp_default_code, comp_company_name, False, standard_price=standard_price)
             if furniture and line.components:
-                # Factory Work: a Buy line on both sheets, vendor = purchasing
-                # company, price left blank (it's project-specific and already
-                # on the sale-estimation component line).
+                # Factory Work: a Buy line on both sheets, vendor = the Factory
+                # Work purchasing company (always the China entity), price left
+                # blank (it's project-specific and already on the
+                # sale-estimation component line).
+                fw_company = factory_work_company()
+                fw_company_name = fw_company.name if fw_company else ""
                 fw_name = factory_work_name(product, project, line.item_code)
                 fw_key = ("factory_work", product.id, norm_code(line.item_code))
                 fw_code = reference_code(project, line.item_code)
-                add_row(purchasing_sheet, fw_key, fw_name, fw_code, purchasing_company_name, False)
-                add_row(selling_sheet, fw_key, fw_name, fw_code, purchasing_company_name, False)
+                add_row(sheet_for(fw_company), fw_key, fw_name, fw_code, fw_company_name, False)
+                add_row(selling_sheet, fw_key, fw_name, fw_code, fw_company_name, False)
         else:
             purchasing_vendor = product.default_vendor.name if product.default_vendor else ""
             add_row(purchasing_sheet, line_key, line_name, line_default_code,

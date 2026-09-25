@@ -70,9 +70,16 @@ class SupportItem(Base):
     # user-entered item code during estimation: Paint/Tile/Stone/Metal).
     purchase_category = Column(String, nullable=True)
     default_vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
+    # The I-Field entity that buys this item from its vendor. On the product
+    # import export, a BOM component goes on this company's workbook; when
+    # unset it falls back to the line product's purchasing company (how
+    # wetworks recipes are routed). Furniture components rely on this --
+    # furniture products themselves have no purchasing company.
+    purchasing_company_id = Column(Integer, ForeignKey("purchasing_companies.id"), nullable=True)
 
     prices = relationship("CountryMaterialPrice", back_populates="support_item", cascade="all, delete-orphan")
     default_vendor = relationship("Vendor")
+    purchasing_company = relationship("PurchasingCompany")
 
 
 class Product(Base):

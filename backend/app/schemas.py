@@ -53,6 +53,8 @@ class SupportItemOut(BaseModel):
     purchase_category: Optional[str] = None
     default_vendor_id: Optional[int] = None
     default_vendor: Optional[VendorOut] = None
+    purchasing_company_id: Optional[int] = None
+    purchasing_company: Optional[PurchasingCompanyOut] = None
 
 
 class SupportItemIn(BaseModel):
@@ -62,6 +64,7 @@ class SupportItemIn(BaseModel):
     uom: str = "Pcs"
     purchase_category: Optional[str] = None
     default_vendor_id: Optional[int] = None
+    purchasing_company_id: Optional[int] = None
 
 
 class BomLineOut(BaseModel):

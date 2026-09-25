@@ -220,7 +220,8 @@ def _refresh_needs_setup(db: Session, product: models.Product):
 @app.get("/api/support-items", response_model=List[schemas.SupportItemOut])
 def list_support_items(db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     return db.query(models.SupportItem).options(
-        joinedload(models.SupportItem.default_vendor)
+        joinedload(models.SupportItem.default_vendor),
+        joinedload(models.SupportItem.purchasing_company),
     ).order_by(models.SupportItem.name).all()
 
 
@@ -228,6 +229,7 @@ def list_support_items(db: Session = Depends(get_db), user: models.User = Depend
 def create_support_item(payload: schemas.SupportItemIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     si = models.SupportItem(**payload.model_dump())
     db.add(si)
+    service.assign_furniture_default_vendor(db, si)
     db.commit()
     db.refresh(si)
     return si
@@ -654,7 +656,8 @@ def _workspace(db: Session, project: models.Project, include_catalog: bool) -> d
         ).order_by(models.Product.category, models.Product.name).all()
         out["selling_companies"] = db.query(models.SellingCompany).order_by(models.SellingCompany.name).all()
         out["support_items"] = db.query(models.SupportItem).options(
-            joinedload(models.SupportItem.default_vendor)
+            joinedload(models.SupportItem.default_vendor),
+            joinedload(models.SupportItem.purchasing_company),
         ).order_by(models.SupportItem.name).all()
     return out
 
@@ -988,6 +991,8 @@ def _load_project_for_export(db: Session, project_id: int, user: models.User) ->
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.location),
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.components).joinedload(
             models.EstimateLineComponent.support_item).joinedload(models.SupportItem.default_vendor),
+        joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.components).joinedload(
+            models.EstimateLineComponent.support_item).joinedload(models.SupportItem.purchasing_company),
     ])
     _recompute_all_lines(db, project)
     _commit_if_changed(db)
@@ -1008,8 +1013,8 @@ def _furniture_bom_signature(line: models.EstimateLine):
 def _validate_project_for_export(project: models.Project):
     """Every project needs a code (it prefixes every exported name and
     reference). Furniture lines that carry a BOM must be export-ready: an
-    item code, a Factory Work cost, and every component with a price and an
-    item code. An exported product is project + product + code, so lines
+    item code, a Factory Work cost, and every component with a price, an
+    item code and a purchasing company on its support item. An exported product is project + product + code, so lines
     sharing a product + code must carry the same BOM, and components sharing
     a support item + code must carry the same price."""
     if not (project.code or "").strip():
@@ -1040,6 +1045,9 @@ def _validate_project_for_export(project: models.Project):
             ccode = (comp.item_code or "").strip()
             if not ccode:
                 problems.append(f"'{label}': component '{si}' has no item code")
+            if comp.support_item and not comp.support_item.purchasing_company_id:
+                problems.append(f"support item '{si}' has no purchasing company -- set one in "
+                                f"Admin > Support items so it lands on that company's product list")
             if not comp.unit_price_cny or comp.unit_price_cny <= 0:
                 problems.append(f"'{label}': component '{si}' has no price")
                 continue
