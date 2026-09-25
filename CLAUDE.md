@@ -165,7 +165,10 @@ docker compose up --build       # app on :80, api docs on :8000/docs
   company, fan out to whichever companies buy their items. Furniture Factory
   Work always goes to `project_types.FACTORY_WORK_PURCHASING_COMPANY` (the
   China entity). Export refuses a furniture component whose support item
-  has no purchasing company.
+  has no purchasing company. A furniture support item created or imported
+  without a vendor gets `Default {purchasing company country} {category}
+  Vendor` (`service.assign_furniture_default_vendor`, created on first use);
+  a real vendor is never replaced.
 - `backend/import_catalog.py` — loads a flat Odoo `product.template`
   workbook (`name | uom_id | standard_price | categ_id | Vendor`), upserting
   by name: `FFE / *` → loose furniture products, `Joinery / *` → fixed
@@ -193,7 +196,7 @@ docker compose up --build       # app on :80, api docs on :8000/docs
 ## Current status
 
 - Catalog: **283 products** (76 wetworks, 166 loose furniture, 41 fixed
-  furniture) + 87 support items + 28 vendors, all in `seed_catalog.json`.
+  furniture) + 87 support items + 32 vendors, all in `seed_catalog.json`.
 - 54 of 76 wetworks products fully configured for KSA (Tile, False
   Ceiling/Gypsum, Paint, Punning, Dry Wall, IPS, Plaster). The rest are
   `needs_setup=True` — addable but price $0 until an admin fills in BOM +

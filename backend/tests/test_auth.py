@@ -810,3 +810,27 @@ def test_new_country_copies_ksa_rate_card_and_prices(client):
     assert client.delete(f"/api/countries/{_country_id(client, token)}", headers=admin).status_code == 400
     assert client.delete(f"/api/countries/{c['id']}", headers=admin).status_code == 200
     assert client.get(f"/api/countries/{c['id']}/material-prices", headers=admin).json() == []
+
+
+def test_furniture_support_item_gets_default_vendor(client):
+    h = _auth(_login(client, "admin", "adminpass"))
+    tag = uuid.uuid4().hex[:6]
+    country = f"Land{tag}"
+    pc = client.post("/api/purchasing-companies", headers=h, json={
+        "name": f"PC {tag}", "country_name": country}).json()["id"]
+    make = lambda name, **kw: client.post("/api/support-items", headers=h, json={
+        "name": name, "uom": "Pcs", "purchasing_company_id": pc, **kw}).json()
+
+    a = make(f"A {tag}", purchase_category="Metal")
+    b = make(f"B {tag}", purchase_category="Metal")
+    assert a["default_vendor"]["name"] == f"Default {country} Metal Vendor"
+    assert b["default_vendor_id"] == a["default_vendor_id"]  # created once, reused
+    assert make(f"C {tag}", purchase_category="Fabric")["default_vendor"]["name"] == \
+        f"Default {country} Fabric Vendor"
+
+    real = client.post("/api/vendors", headers=h, json={"name": f"Real {tag}"}).json()["id"]
+    assert make(f"D {tag}", purchase_category="Metal", default_vendor_id=real)["default_vendor_id"] == real
+    assert make(f"E {tag}", purchase_category="Paint")["default_vendor_id"] is None  # not furniture
+    no_pc = client.post("/api/support-items", headers=h, json={
+        "name": f"F {tag}", "uom": "Pcs", "purchase_category": "Metal"}).json()
+    assert no_pc["default_vendor_id"] is None  # no company -> no country to name it after

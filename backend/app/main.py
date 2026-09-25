@@ -229,6 +229,7 @@ def list_support_items(db: Session = Depends(get_db), user: models.User = Depend
 def create_support_item(payload: schemas.SupportItemIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     si = models.SupportItem(**payload.model_dump())
     db.add(si)
+    service.assign_furniture_default_vendor(db, si)
     db.commit()
     db.refresh(si)
     return si
