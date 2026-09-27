@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import openpyxl
 
 from app.database import SessionLocal
-from app import models, project_types, service
+from app import models, project_types, service, uoms
 
 
 # Support-item name -> purchase_category. Every furniture support item gets
@@ -94,7 +94,7 @@ def _read_rows(path):
             continue
         out.append({
             "name": name,
-            "uom": _cell(r[idx["uom_id"]]) or "Nos",
+            "uom": uoms.normalize(_cell(r[idx["uom_id"]]) or "Nos"),
             "price": r[idx["standard_price"]],
             "categ": _cell(r[idx["categ_id"]]) or "",
             "vendor": _cell(r[vendor_i]) if vendor_i is not None else None,

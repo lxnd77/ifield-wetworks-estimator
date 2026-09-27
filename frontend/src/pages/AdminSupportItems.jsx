@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api";
+import { UOMS } from "../uoms";
 
 // Wetworks (Paint / Tile / Stone / Metal) + furniture (Fabric / Stone / Metal / Accessories).
 const PURCHASE_CATEGORIES = ["Paint", "Tile", "Stone", "Metal", "Fabric", "Accessories", "Other"];
@@ -65,7 +66,18 @@ export default function AdminSupportItems() {
             {filtered.map((item) => (
               <tr key={item.id} className="border-b last:border-0 hover:bg-slate-50">
                 <td className="px-4 py-2">{item.name}</td>
-                <td className="px-4 py-2 text-slate-500">{item.uom}</td>
+                <td className="px-4 py-2">
+                  <select
+                    value={item.uom}
+                    onChange={(e) => save(item, { uom: e.target.value })}
+                    className="border rounded-md px-2 py-1 text-sm bg-white"
+                  >
+                    {!UOMS.includes(item.uom) && <option value={item.uom}>{item.uom}</option>}
+                    {UOMS.map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                </td>
                 <td className="px-4 py-2">
                   <select
                     value={item.purchase_category || ""}

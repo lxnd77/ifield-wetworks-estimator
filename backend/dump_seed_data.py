@@ -38,7 +38,7 @@ def run(output_path: str):
                 for p in db.query(models.PurchasingCompany).order_by(models.PurchasingCompany.id)
             ],
             "selling_companies": [
-                _row(s, ["id", "name", "country_name", "notes"])
+                _row(s, ["id", "name", "country_name", "currency_code", "fx_rate_to_usd", "notes"])
                 for s in db.query(models.SellingCompany).order_by(models.SellingCompany.id)
             ],
             "countries": [

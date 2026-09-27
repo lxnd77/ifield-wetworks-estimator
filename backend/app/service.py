@@ -176,3 +176,26 @@ def assign_furniture_default_vendor(db: Session, si: models.SupportItem) -> None
         db.flush()
     si.default_vendor_id = vendor.id
     si.default_vendor = vendor
+
+
+def default_factory_work_vendor(db: Session) -> models.Vendor:
+    """project_types.DEFAULT_FACTORY_WORK_VENDOR, created on first use."""
+    name = project_types.DEFAULT_FACTORY_WORK_VENDOR
+    vendor = db.query(models.Vendor).filter(models.Vendor.name == name).first()
+    if vendor is None:
+        vendor = models.Vendor(name=name)
+        db.add(vendor)
+        db.flush()
+    return vendor
+
+
+def company_fx(project: models.Project, company) -> float:
+    """Units of `company`'s currency per 1 USD for this project's export. On
+    a furniture project a CNY company uses the project's own CNY rate -- the
+    one its prices were entered and converted at -- so they come back
+    unchanged."""
+    if company is None:
+        return 1.0
+    if (company.currency_code or "").upper() == "CNY" and project_types.bom_per_line(project.project_type):
+        return furniture_fx(project)
+    return company.fx_rate_to_usd or 1.0

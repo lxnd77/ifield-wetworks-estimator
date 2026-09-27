@@ -19,9 +19,16 @@ from collections import Counter
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.database import Base, engine, SessionLocal
-from app import models
+from app import models, uoms, currencies
 
 SEED_DATA_PATH = os.path.join(os.path.dirname(__file__), "app", "seed_catalog.json")
+
+
+def _company_currency(row):
+    """A company row's currency -- as dumped, or its country's default."""
+    code, rate = currencies.default_for_country(row.get("country_name"))
+    return {"currency_code": row.get("currency_code") or code,
+            "fx_rate_to_usd": row.get("fx_rate_to_usd") or rate}
 
 
 def run():
@@ -47,6 +54,7 @@ def run():
         for row in data["purchasing_companies"]:
             pc = models.PurchasingCompany(
                 name=row["name"], country_name=row.get("country_name"), notes=row.get("notes"),
+                **_company_currency(row),
             )
             db.add(pc)
             db.flush()
@@ -56,6 +64,7 @@ def run():
         for row in data["selling_companies"]:
             sc = models.SellingCompany(
                 name=row["name"], country_name=row.get("country_name"), notes=row.get("notes"),
+                **_company_currency(row),
             )
             db.add(sc)
             db.flush()
@@ -71,7 +80,7 @@ def run():
         product_id_map = {}
         for row in data["products"]:
             p = models.Product(
-                name=row["name"], uom=row["uom"], category=row["category"],
+                name=row["name"], uom=uoms.normalize(row["uom"]), category=row["category"],
                 product_type=row.get("product_type", "wetworks"),
                 default_code=row.get("default_code"), odoo_id=row.get("odoo_id"),
                 active=bool(row.get("active", True)), needs_setup=bool(row.get("needs_setup", True)),
@@ -88,7 +97,7 @@ def run():
         for row in data["support_items"]:
             si = models.SupportItem(
                 name=row["name"], default_code=row.get("default_code"), odoo_id=row.get("odoo_id"),
-                uom=row["uom"], notes=row.get("notes"), purchase_category=row.get("purchase_category"),
+                uom=uoms.normalize(row["uom"]), notes=row.get("notes"), purchase_category=row.get("purchase_category"),
                 default_vendor_id=vendor_id_map.get(row.get("default_vendor_id")),
                 purchasing_company_id=purchasing_company_id_map.get(row.get("purchasing_company_id")),
             )

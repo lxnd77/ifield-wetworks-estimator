@@ -360,6 +360,12 @@ def _sheet_rows(buf):
     return rows[0], rows[1:]
 
 
+def _rows_by_name(buf):
+    """Product-import rows keyed by name, each a {header: value} dict."""
+    header, rows = _sheet_rows(buf)
+    return {r[header.index("name")]: dict(zip(header, r)) for r in rows}
+
+
 def _built_line(db, project_type, *, with_coverage=False, item_code="X1", project_code="PJ", ohp_pct=0.0):
     line = _make_line(db, project_type, with_coverage=with_coverage, item_code=item_code,
                       project_code=project_code, ohp_pct=ohp_pct,
@@ -462,7 +468,7 @@ def test_product_import_furniture_routes_components_to_their_company():
         service.recompute_estimate_line(db, line)
         db.commit()
 
-        books = {k: {r[1]: r for r in _sheet_rows(v)[1]}
+        books = {k: _rows_by_name(v)
                  for k, v in export_excel.build_product_import_workbooks(db, line.project)}
         assert set(books) == {"SC ftest", india.name, china.name}
         product_name = f"{line.product.name} PJ {line.item_code}"
@@ -470,17 +476,20 @@ def test_product_import_furniture_routes_components_to_their_company():
         stone_name = "SI stone ftest PJ ST1"
         fw_name = f"Factory Work for {line.product.name} PJ {line.item_code}"
 
+        vendor_col, route_col, price_col = "seller_ids/partner_id", "route_ids", "standard_price"
         hk = books["SC ftest"]
-        assert hk[product_name][4].startswith("Manufacture") and hk[product_name][3] in (None, "")
-        assert hk[fabric_name][3] == china.name and hk[fabric_name][8] == round(comp.unit_cost, 4)
-        assert hk[stone_name][3] == india.name and hk[stone_name][4].startswith("Buy")
-        assert hk[fw_name][3] == china.name and hk[fw_name][7] == "Storable Product"
-        assert hk[fw_name][8] == 7.0  # factory_work_cny 7.0 at 1 CNY/USD
+        assert hk[product_name][route_col].startswith("Manufacture") and hk[product_name][vendor_col] in (None, "")
+        assert hk[fabric_name][vendor_col] == china.name and hk[fabric_name][price_col] == round(comp.unit_cost, 4)
+        assert hk[stone_name][vendor_col] == india.name and hk[stone_name][route_col].startswith("Buy")
+        assert hk[fw_name][vendor_col] == china.name and hk[fw_name]["detailed_type"] == "Storable Product"
+        assert hk[fw_name][price_col] == 7.0  # factory_work_cny 7.0 at 1 CNY/USD
 
         assert set(books[india.name]) == {stone_name}
-        assert books[india.name][stone_name][3] == vendor.name
+        assert books[india.name][stone_name][vendor_col] == vendor.name
         assert set(books[china.name]) == {fabric_name, fw_name}
-        assert books[china.name][fw_name][8] == 7.0
+        assert books[china.name][fw_name][price_col] == 7.0
+        # DAKA buys the Factory Work from the default vendor
+        assert books[china.name][fw_name][vendor_col] == project_types.DEFAULT_FACTORY_WORK_VENDOR
     finally:
         db.close()
 
@@ -495,11 +504,11 @@ def test_wetworks_components_fall_back_to_product_company():
         line.project.selling_company_id = sc.id
         line.product.purchasing_company_id = pc.id
         db.commit()
-        books = {k: {r[1]: r for r in _sheet_rows(v)[1]}
+        books = {k: _rows_by_name(v)
                  for k, v in export_excel.build_product_import_workbooks(db, line.project)}
         comp_name = f"{line.components[0].support_item.name} PJ"
         assert set(books["PC wfall"]) == {comp_name}
-        assert books["SC wfall"][comp_name][3] == "PC wfall"
+        assert books["SC wfall"][comp_name]["seller_ids/partner_id"] == "PC wfall"
     finally:
         db.close()
 
@@ -601,25 +610,30 @@ def test_wetworks_exports_qualify_names_and_codes():
         assert data[0][col("estimation_line_ids/default_code")] == "PJ W1"
         assert data[0][col(c + "product_id")] == f"{comp.support_item.name} PJ"
         assert data[0][col(c + "default_code")] == "PJ"
-        # catalog odoo ids never ride along with project-specific names
-        assert data[0][col("estimation_line_ids/product_id/id")] in (None, "")
-        assert data[0][col(c + "product_id/id")] in (None, "")
+        # project-specific external ids -- never the catalog odoo ids
+        pslug = project.name.replace(" ", "-").replace("_", "-")
+        line_id = f"{pslug}-P{line.product.id}-W1"
+        comp_id = f"{pslug}-S{comp.support_item.id}"
+        assert data[0][col("estimation_line_ids/product_id/id")] == line_id
+        assert data[0][col(c + "product_id/id")] == comp_id
 
         bh, bd = _sheet_rows(export_excel.build_bom_workbook(db, project))
         assert bd[0][bh.index("product")] == f"{line.product.name} PJ W1"
         assert bd[0][bh.index("reference")] == "PJ W1"
         assert bd[0][bh.index("bom_line_ids/product_id")] == f"{comp.support_item.name} PJ"
+        assert bd[0][bh.index("product/id")] == line_id
+        assert bd[0][bh.index("bom_line_ids/product_id/id")] == comp_id
 
         sc = models.SellingCompany(name="SC wtest")
         db.add(sc)
         db.flush()
         project.selling_company_id = sc.id
         db.commit()
-        _, rows = _sheet_rows(dict(export_excel.build_product_import_workbooks(db, project))["SC wtest"])
-        by_name = {r[1]: r for r in rows}
-        assert by_name[f"{line.product.name} PJ W1"][2] == "PJ W1"
-        assert by_name[f"{comp.support_item.name} PJ"][2] == "PJ"
-        assert all(r[0] in (None, "") for r in rows)
+        by_name = _rows_by_name(dict(export_excel.build_product_import_workbooks(db, project))["SC wtest"])
+        assert by_name[f"{line.product.name} PJ W1"]["default_code"] == "PJ W1"
+        assert by_name[f"{comp.support_item.name} PJ"]["default_code"] == "PJ"
+        assert by_name[f"{line.product.name} PJ W1"]["id"] == line_id
+        assert by_name[f"{comp.support_item.name} PJ"]["id"] == comp_id
     finally:
         db.close()
 
@@ -848,8 +862,126 @@ def test_product_import_factory_work_price_converted_from_cny():
         db.flush()
         line.project.selling_company_id = sc.id
         db.commit()
-        rows = {r[1]: r for r in _sheet_rows(
-            dict(export_excel.build_product_import_workbooks(db, line.project))["SC fwprice"])[1]}
-        assert rows[f"Factory Work for {line.product.name} PJ FWP"][8] == 5.0  # 36 / 7.2
+        rows = _rows_by_name(dict(export_excel.build_product_import_workbooks(db, line.project))["SC fwprice"])
+        assert rows[f"Factory Work for {line.product.name} PJ FWP"]["standard_price"] == 5.0  # 36 / 7.2
+    finally:
+        db.close()
+
+
+# ---- product_uom, company currency, Factory Work vendor, external ids ----
+
+def test_export_id_format():
+    project = models.Project(id=7, name="  Riyadh Corniche (Phase 2) ")
+    assert export_excel.export_id(project, "P12", "ch 01") == "Riyadh-Corniche-Phase-2-P12-CH-01"
+    assert export_excel.export_id(project, "P12", "ch 01", factory_work=True) == "Riyadh-Corniche-Phase-2-P12-CH-01-F"
+    assert export_excel.export_id(project, "S3", None) == "Riyadh-Corniche-Phase-2-S3"
+    assert export_excel.export_id(models.Project(id=7, name="مشروع"), "P1", "") == "Project-7-P1"
+
+
+def test_uom_normalized_and_validated(client):
+    token = _login(client, "admin", "adminpass")
+    h = _auth(token)
+    r = client.post("/api/support-items", headers=h, json={"name": f"U {uuid.uuid4().hex[:6]}", "uom": "Pcs"})
+    assert r.status_code == 200 and r.json()["uom"] == "Units"
+    r = client.post("/api/support-items", headers=h, json={"name": f"U {uuid.uuid4().hex[:6]}", "uom": "m²"})
+    assert r.json()["uom"] == "m²"
+    assert client.post("/api/support-items", headers=h,
+                       json={"name": "bad uom", "uom": "furlongs"}).status_code == 422
+
+
+def test_company_currency_defaults_from_country(client):
+    h = _auth(_login(client, "admin", "adminpass"))
+    tag = uuid.uuid4().hex[:6]
+    cn = client.post("/api/purchasing-companies", headers=h, json={"name": f"CN {tag}", "country_name": "China"}).json()
+    assert (cn["currency_code"], cn["fx_rate_to_usd"]) == ("CNY", project_types.DEFAULT_CNY_PER_USD)
+    hk = client.post("/api/selling-companies", headers=h, json={"name": f"HK {tag}", "country_name": "Hong Kong"}).json()
+    assert hk["currency_code"] == "USD"
+    ng = client.post("/api/purchasing-companies", headers=h, json={
+        "name": f"NG {tag}", "country_name": "Nigeria", "fx_rate_to_usd": 1600}).json()
+    assert (ng["currency_code"], ng["fx_rate_to_usd"]) == ("NGN", 1600)
+
+
+def test_product_import_uom_currency_and_ids():
+    """product_uom on every row; standard_price on every row, in the workbook
+    company's currency (a CNY company gets the CNY price as entered)."""
+    db = SessionLocal()
+    try:
+        line = _make_line(db, "loose_furniture", factory_work_cny=36.0, item_code="ch1",
+                          comp_code="FB1", comp_price_cny=72.0, comp_qty_per_unit=1.0,
+                          cny_per_usd=7.2, project_code="PJ")
+        tag = uuid.uuid4().hex[:6]
+        sc = models.SellingCompany(name=f"SC cur {tag}", currency_code="INR", fx_rate_to_usd=88.0)
+        daka = _purchasing_company(db, project_types.FACTORY_WORK_PURCHASING_COMPANY)
+        daka.currency_code, daka.fx_rate_to_usd = "CNY", 7.0  # project rate (7.2) wins
+        db.add(sc)
+        db.flush()
+        comp = line.components[0]
+        comp.support_item.purchasing_company_id = daka.id
+        comp.support_item.uom = "m"
+        line.project.selling_company_id = sc.id
+        db.commit()
+        service.recompute_estimate_line(db, line)
+        db.commit()
+
+        books = {k: _rows_by_name(v) for k, v in export_excel.build_product_import_workbooks(db, line.project)}
+        product_name = f"{line.product.name} PJ ch1"
+        fabric_name = f"{comp.support_item.name} PJ FB1"
+        fw_name = f"Factory Work for {line.product.name} PJ ch1"
+        pslug = line.project.name.replace(" ", "-").replace("_", "-")
+
+        hk, cn = books[sc.name], books[daka.name]
+        # ids
+        assert hk[product_name]["id"] == f"{pslug}-P{line.product.id}-CH1"
+        assert hk[fabric_name]["id"] == cn[fabric_name]["id"] == f"{pslug}-S{comp.support_item.id}-FB1"
+        assert hk[fw_name]["id"] == cn[fw_name]["id"] == f"{pslug}-P{line.product.id}-CH1-F"
+        # units: product "Pcs" (legacy) -> Units, support item m, Factory Work Units
+        assert hk[product_name]["product_uom"] == "Units"
+        assert hk[fabric_name]["product_uom"] == cn[fabric_name]["product_uom"] == "m"
+        assert hk[fw_name]["product_uom"] == "Units"
+        # prices: CNY sheet = the CNY entered; INR sheet = USD * 88
+        assert cn[fabric_name]["standard_price"] == 72.0
+        assert cn[fw_name]["standard_price"] == 36.0
+        assert hk[fabric_name]["standard_price"] == round(10.0 * 88, 4)  # 72 CNY = $10
+        assert hk[fw_name]["standard_price"] == round(5.0 * 88, 4)       # 36 CNY = $5
+        # the Manufacture product is priced too: material cost per unit ($15)
+        assert hk[product_name]["standard_price"] == round(15.0 * 88, 4)
+    finally:
+        db.close()
+
+
+def test_factory_work_vendor_defaults_to_fad_and_is_selectable(client):
+    token = _login(client, "alice", "alicepass")
+    h = _auth(token)
+    prod, si, pid, loc = _furniture_project(client, h, _country_id(client, token))
+    r = _save(client, h, pid, [{"id": loc, "name": "L"}],
+              [{"location_id": loc, "product_id": prod, "qty": 1, "item_code": "C1", "factory_work_cost_cny": 10}])
+    assert r.status_code == 200, r.text
+    ws = r.json()
+    line = ws["lines"][0]
+    vendors = {v["id"]: v["name"] for v in client.get(f"/api/projects/{pid}/workspace", headers=h).json()["vendors"]}
+    assert vendors[line["factory_work_vendor_id"]] == project_types.DEFAULT_FACTORY_WORK_VENDOR
+
+    other = client.post("/api/vendors", headers=h, json={"name": f"FW {uuid.uuid4().hex[:6]}"}).json()
+    r = _save(client, h, pid, [{"id": loc, "name": "L"}],
+              [{"id": line["id"], "location_id": loc, "product_id": prod, "qty": 1, "item_code": "C1",
+                "factory_work_cost_cny": 10, "factory_work_vendor_id": other["id"]}])
+    assert r.json()["lines"][0]["factory_work_vendor_id"] == other["id"]
+    bad = _save(client, h, pid, [{"id": loc, "name": "L"}],
+                [{"id": line["id"], "location_id": loc, "product_id": prod, "qty": 1, "item_code": "C1",
+                  "factory_work_vendor_id": 999999}])
+    assert bad.status_code == 422
+
+    db = SessionLocal()
+    try:
+        daka = _purchasing_company(db, project_types.FACTORY_WORK_PURCHASING_COMPANY)
+        db.commit()
+        ln = db.get(models.EstimateLine, line["id"])
+        ln.components.append(models.EstimateLineComponent(
+            support_item_id=si, qty_per_unit=1.0, unit_price_cny=5.0, item_code="FB",
+            qty=0.0, unit_cost=0.0, total_cost=0.0))
+        db.commit()
+        books = {k: _rows_by_name(v) for k, v in export_excel.build_product_import_workbooks(db, ln.project)}
+        fw = next(r for n, r in books[daka.name].items() if n.startswith("Factory Work"))
+        assert fw["seller_ids/partner_id"] == other["name"]
     finally:
         db.close()

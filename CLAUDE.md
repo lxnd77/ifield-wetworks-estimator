@@ -59,9 +59,22 @@ Keys compare via `export_excel.norm_code` (trimmed, case-insensitive). Codes
 may repeat: same product + code on two furniture lines must carry the same BOM
 (checked at export, `_furniture_bom_signature` — not on save, since lines are
 mid-edit then); same support item + code must carry the same CNY price
-(checked on component save and export). Export id columns (`product_id/id`,
-product-import `id`) are deliberately blank: catalog `odoo_id`s belong to the
-shared catalog record, not the project-specific product.
+(checked on component save and export). Every exported product also carries a
+project-specific external id (`export_excel.export_id`):
+`<project name>-P<product id>[-<ITEM CODE>]`, `...-S<support item id>[...]`
+for BOM items, `...-F` suffix for Factory Work — the product-import `id`,
+referenced by the sale-estimation / BOM `/id` columns. Catalog `odoo_id`s are
+never exported: they belong to the shared catalog record.
+
+Product import also carries `product_uom` (units are restricted to the Odoo
+list in `app/uoms.py`, mirrored in `frontend/src/uoms.js`; legacy spellings
+normalize via `uoms.normalize`) and a `standard_price` on every row in the
+workbook company's currency (`PurchasingCompany`/`SellingCompany`
+`.currency_code` + `.fx_rate_to_usd`, defaults per country in
+`app/currencies.py`; `service.company_fx` — a CNY company on a furniture
+project uses the project's `cny_per_usd`). Furniture Factory Work is bought
+from `EstimateLine.factory_work_vendor` (default "FAD",
+`project_types.DEFAULT_FACTORY_WORK_VENDOR`, filled in on save).
 
 > **History (furniture extension):** the app was "I-Field Wetworks
 > Estimator"; `WetworksProduct`/`wetworks_products` were renamed to
