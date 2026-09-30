@@ -13,10 +13,12 @@ const TABS = [
     key: "purchasing-companies",
     label: "Purchasing Companies",
     endpoint: "/purchasing-companies",
-    blurb: "I-Field entities that buy a finished line item on behalf of the selling company (e.g. I-Field Dubai for Wetworks). Set as a product's default purchasing route.",
+    blurb: "I-Field entities that buy a finished line item on behalf of the selling company (e.g. I-Field Dubai for Wetworks). Set as a product's default purchasing route. Standard prices on a company's product import sheet are in its currency; leave currency/rate blank to use its country's default (China CNY, India INR, Nigeria NGN, else USD). A CNY company uses the furniture project's own CNY rate.",
     fields: [
       { key: "name", label: "Name", required: true },
       { key: "country_name", label: "Country" },
+      { key: "currency_code", label: "Currency", placeholder: "from country" },
+      { key: "fx_rate_to_usd", label: "Units per 1 USD", type: "number", placeholder: "from country" },
       { key: "notes", label: "Notes" },
     ],
   },
@@ -24,10 +26,12 @@ const TABS = [
     key: "selling-companies",
     label: "Selling Companies",
     endpoint: "/selling-companies",
-    blurb: "I-Field entities that invoice the client. Selected per project.",
+    blurb: "I-Field entities that invoice the client. Selected per project. Standard prices on its product import sheet are in its currency (blank = its country's default).",
     fields: [
       { key: "name", label: "Name", required: true },
       { key: "country_name", label: "Country" },
+      { key: "currency_code", label: "Currency", placeholder: "from country" },
+      { key: "fx_rate_to_usd", label: "Units per 1 USD", type: "number", placeholder: "from country" },
       { key: "notes", label: "Notes" },
     ],
   },
@@ -133,7 +137,7 @@ function EntityTable({ tab }) {
             ) : (
               <tr key={row.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => setEditingId(row.id)}>
                 {tab.fields.map((f) => (
-                  <td key={f.key} className="py-1.5 pr-3">{row[f.key] || <span className="text-slate-300">--</span>}</td>
+                  <td key={f.key} className="py-1.5 pr-3">{row[f.key] ?? <span className="text-slate-300">--</span>}</td>
                 ))}
                 <td className="py-1.5 text-right">
                   <button onClick={(e) => { e.stopPropagation(); remove(row.id); }} className="text-xs text-red-500 hover:underline">
@@ -163,7 +167,7 @@ function EntityTable({ tab }) {
 }
 
 function EntityForm({ fields, initial, onCancel, onSubmit }) {
-  const [form, setForm] = useState(initial ? Object.fromEntries(fields.map((f) => [f.key, initial[f.key] || ""])) : emptyForm(fields));
+  const [form, setForm] = useState(initial ? Object.fromEntries(fields.map((f) => [f.key, initial[f.key] ?? ""])) : emptyForm(fields));
   const [saving, setSaving] = useState(false);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
@@ -171,7 +175,9 @@ function EntityForm({ fields, initial, onCancel, onSubmit }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = Object.fromEntries(fields.map((f) => [f.key, form[f.key] || null]));
+      const payload = Object.fromEntries(fields.map((f) => [
+        f.key, form[f.key] === "" || form[f.key] == null ? null : f.type === "number" ? Number(form[f.key]) : form[f.key],
+      ]));
       await onSubmit(payload);
     } finally {
       setSaving(false);
@@ -183,7 +189,8 @@ function EntityForm({ fields, initial, onCancel, onSubmit }) {
       {fields.map((f) => (
         <div key={f.key} className="min-w-[160px]">
           <label className="text-xs text-slate-500">{f.label}</label>
-          <input required={f.required} value={form[f.key]} onChange={set(f.key)} className="w-full border rounded-md px-2 py-1.5 text-sm" />
+          <input required={f.required} type={f.type || "text"} step={f.type === "number" ? "any" : undefined}
+            placeholder={f.placeholder} value={form[f.key]} onChange={set(f.key)} className="w-full border rounded-md px-2 py-1.5 text-sm" />
         </div>
       ))}
       <button disabled={saving} className="text-sm px-4 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">

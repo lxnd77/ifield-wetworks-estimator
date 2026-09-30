@@ -21,3 +21,8 @@ export const bomPerLine = (value) => typeConfig(value).bomPerLine;
 // The support-item purchase_category values the furniture component picker
 // filters on (mirror of project_types.FURNITURE_BOM_CATEGORIES).
 export const FURNITURE_BOM_CATEGORIES = ["Fabric", "Stone", "Metal", "Accessories"];
+
+// Who the China company buys a furniture line's Factory Work from unless the
+// estimator picks another vendor (mirror of
+// project_types.DEFAULT_FACTORY_WORK_VENDOR).
+export const DEFAULT_FACTORY_WORK_VENDOR = "FAD";

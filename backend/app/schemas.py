@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from . import uoms, currencies
 
 
 class VendorOut(BaseModel):
@@ -15,18 +16,48 @@ class VendorIn(BaseModel):
     notes: Optional[str] = None
 
 
+class _CompanyIn(BaseModel):
+    name: str
+    country_name: Optional[str] = None
+    # The company's own currency: product-import standard prices on its
+    # workbook are in it. fx_rate_to_usd = currency units per 1 USD. Left
+    # blank, both default from the country (app/currencies.py).
+    currency_code: Optional[str] = None
+    fx_rate_to_usd: Optional[float] = None
+    notes: Optional[str] = None
+
+    @field_validator("fx_rate_to_usd")
+    @classmethod
+    def _rate(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError("fx rate must be greater than 0")
+        return v
+
+    @model_validator(mode="after")
+    def _currency_defaults(self):
+        code = (self.currency_code or "").strip().upper()
+        if not code:
+            code, rate = currencies.default_for_country(self.country_name)
+        else:
+            rate = currencies.default_rate(code)
+        self.currency_code = code
+        if self.fx_rate_to_usd is None:
+            self.fx_rate_to_usd = rate
+        return self
+
+
 class PurchasingCompanyOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
     country_name: Optional[str] = None
+    currency_code: str = "USD"
+    fx_rate_to_usd: float = 1.0
     notes: Optional[str] = None
 
 
-class PurchasingCompanyIn(BaseModel):
-    name: str
-    country_name: Optional[str] = None
-    notes: Optional[str] = None
+class PurchasingCompanyIn(_CompanyIn):
+    pass
 
 
 class SellingCompanyOut(BaseModel):
@@ -34,13 +65,13 @@ class SellingCompanyOut(BaseModel):
     id: int
     name: str
     country_name: Optional[str] = None
+    currency_code: str = "USD"
+    fx_rate_to_usd: float = 1.0
     notes: Optional[str] = None
 
 
-class SellingCompanyIn(BaseModel):
-    name: str
-    country_name: Optional[str] = None
-    notes: Optional[str] = None
+class SellingCompanyIn(_CompanyIn):
+    pass
 
 
 class SupportItemOut(BaseModel):
@@ -61,10 +92,15 @@ class SupportItemIn(BaseModel):
     name: str
     default_code: Optional[str] = None
     odoo_id: Optional[str] = None
-    uom: str = "Pcs"
+    uom: str = uoms.DEFAULT
     purchase_category: Optional[str] = None
     default_vendor_id: Optional[int] = None
     purchasing_company_id: Optional[int] = None
+
+    @field_validator("uom")
+    @classmethod
+    def _uom(cls, v):
+        return uoms.coerce(v)
 
 
 class BomLineOut(BaseModel):
@@ -87,6 +123,11 @@ class BomLineIn(BaseModel):
     wastage_pct: float = 0.0
     role: str = "fixing"
     sort_order: int = 0
+
+    @field_validator("new_support_item_uom")
+    @classmethod
+    def _uom(cls, v):
+        return None if v is None or not v.strip() else uoms.coerce(v)
 
 
 class CoverageRateOut(BaseModel):
@@ -153,6 +194,11 @@ class ProductIn(BaseModel):
     default_vendor_id: Optional[int] = None
     consumable_pct: float = 0.0
     ohp_pct: float = 0.0
+
+    @field_validator("uom")
+    @classmethod
+    def _uom(cls, v):
+        return uoms.coerce(v)
 
 
 class CountryOut(BaseModel):
@@ -338,6 +384,7 @@ class EstimateLineOut(BaseModel):
     dimension: Optional[str] = None
     item_code: Optional[str] = None
     factory_work_cost_cny: Optional[float] = None
+    factory_work_vendor_id: Optional[int] = None
     material_cost_per_unit: float
     labor_cost_per_unit: float
     wages_cost_per_unit: float
@@ -360,6 +407,10 @@ class EstimateLineIn(BaseModel):
     dimension: Optional[str] = None
     item_code: Optional[str] = None
     factory_work_cost_cny: Optional[float] = None
+    # Furniture: the vendor the Factory Work purchasing company buys the
+    # Factory Work from. Left blank on a line with a BOM, the default
+    # (project_types.DEFAULT_FACTORY_WORK_VENDOR) is filled in on save.
+    factory_work_vendor_id: Optional[int] = None
 
 
 class EstimateLocationSaveIn(BaseModel):
@@ -396,3 +447,4 @@ class ProjectWorkspaceOut(BaseModel):
     products: Optional[List[ProductOut]] = None
     selling_companies: Optional[List[SellingCompanyOut]] = None
     support_items: Optional[List[SupportItemOut]] = None
+    vendors: Optional[List[VendorOut]] = None

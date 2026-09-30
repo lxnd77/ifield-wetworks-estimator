@@ -32,6 +32,12 @@ class PurchasingCompany(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False, unique=True)
     country_name = Column(String, nullable=True)
+    # The company's own currency -- product-import standard prices on its
+    # workbook are converted into it. fx_rate_to_usd = currency units per 1
+    # USD (a CNY company uses the project's cny_per_usd instead, so furniture
+    # CNY prices land on its sheet unconverted).
+    currency_code = Column(String, nullable=False, default="USD", server_default="USD")
+    fx_rate_to_usd = Column(Float, nullable=False, default=1.0, server_default="1")
     notes = Column(Text, nullable=True)
 
 
@@ -43,6 +49,12 @@ class SellingCompany(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False, unique=True)
     country_name = Column(String, nullable=True)
+    # The company's own currency -- product-import standard prices on its
+    # workbook are converted into it. fx_rate_to_usd = currency units per 1
+    # USD (a CNY company uses the project's cny_per_usd instead, so furniture
+    # CNY prices land on its sheet unconverted).
+    currency_code = Column(String, nullable=False, default="USD", server_default="USD")
+    fx_rate_to_usd = Column(Float, nullable=False, default=1.0, server_default="1")
     notes = Column(Text, nullable=True)
 
 
@@ -63,7 +75,7 @@ class SupportItem(Base):
     # re-import an update instead of a duplicate. Populated in export sheets
     # whenever set.
     odoo_id = Column(String, nullable=True)
-    uom = Column(String, nullable=False, default="Pcs")
+    uom = Column(String, nullable=False, default="Units")  # one of app/uoms.py UOMS
     notes = Column(Text, nullable=True)
     # Independent of Product.category -- classifies the BOM item
     # itself for purchasing/export purposes (which categories get a
@@ -88,7 +100,7 @@ class Product(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    uom = Column(String, nullable=False)
+    uom = Column(String, nullable=False)  # one of app/uoms.py UOMS
     category = Column(String, nullable=False)  # Tile / False Ceiling / Paint / Stone / Counters / Flooring
     # Which estimation mode this product belongs to -- see app/project_types.py.
     # "wetworks" (material + labor) / "loose_furniture" / "fixed_furniture"
@@ -319,6 +331,10 @@ class EstimateLine(Base):
     # material_cost_per_unit, and emitted as a qty-1 component row in all three
     # exports. Null / unused for wetworks.
     factory_work_cost_cny = Column(Float, nullable=True)
+    # Furniture only: the vendor the Factory Work purchasing company (DAKA)
+    # buys that Factory Work from -- its vendor on DAKA's product import
+    # sheet. Defaults to project_types.DEFAULT_FACTORY_WORK_VENDOR.
+    factory_work_vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
 
     # computed / cached at save time (per unit, in USD)
     material_cost_per_unit = Column(Float, default=0.0)
@@ -332,6 +348,7 @@ class EstimateLine(Base):
     project = relationship("Project", back_populates="estimate_lines")
     location = relationship("ProjectLocation", back_populates="estimate_lines")
     product = relationship("Product")
+    factory_work_vendor = relationship("Vendor")
     components = relationship("EstimateLineComponent", back_populates="estimate_line", cascade="all, delete-orphan")
 
 

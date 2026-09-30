@@ -125,7 +125,9 @@ Recompute only re-prices those rows -- it never adds or removes them.
 Every furniture line that has components also carries a **Factory Work** charge
 -- a per-project assembly price in CNY, quantity always 1, entered on the line.
 It's folded into `material_cost_per_unit` and appears in all three exports as a
-`Factory Work for <product>` component row.
+`Factory Work for <product>` component row. The China company (DAKA) buys it
+from the line's **Factory Work vendor** -- `FAD` by default
+(`project_types.DEFAULT_FACTORY_WORK_VENDOR`), selectable in the line editor.
 
 ```
 component_usd = qty_per_unit * unit_price_cny / project.cny_per_usd
@@ -163,9 +165,14 @@ export until it's set). In all three exports:
   ones are required);
 - two lines with the same product and code are the same product: one mrp.bom,
   one product-import row;
-- the Odoo external id columns are left blank -- the catalog's `odoo_id` belongs
-  to the shared catalog record, and sending it with a project-specific name
-  would make Odoo rename that record.
+- every product carries a project-specific Odoo external id, no spaces, `-`
+  separated: `<project name>-P<product id>[-<item code>]` for a line product,
+  `<project name>-S<support item id>[-<item code>]` for a BOM item, and the
+  line product's id + `-F` for its Factory Work (e.g.
+  `Riyadh-Corniche-Hotel-P133-LC-01-F`). It's the Product Import `id`, and the
+  Sale Estimation / BOM sheets reference it in their `/id` columns
+  (`product_id/id`, `product/id`, `bom_line_ids/product_id/id`). The catalog's
+  `odoo_id` is never exported -- it belongs to the shared catalog record.
 
 ### Labor cost (wetworks only)
 
@@ -254,6 +261,16 @@ in your Odoo). The labor-cost column is left blank for furniture projects.
 Odoo-specific fields this app doesn't model are left blank -- Odoo's xlsx import
 matches columns by header text, not position, so this is safe.
 
+Each Product Import workbook carries `product_uom` (the item's unit -- one of
+the Odoo units in `backend/app/uoms.py`; admin screens only offer those) and a
+`standard_price` on every row, in **that company's own currency**: each
+purchasing / selling company has a currency and a units-per-USD rate (Admin →
+Settings; defaults from its country -- China CNY, India INR, Nigeria NGN, else
+USD). A CNY company uses the furniture project's own CNY rate, so furniture
+prices come back exactly as entered in CNY. A line product's price is its cost
+per unit (material + labor); a BOM item's is its unit price; Factory Work's is
+the line's charge.
+
 ## Project layout
 
 ```
@@ -284,6 +301,8 @@ docker-compose.yml
   real values in your Odoo and change them in `backend/app/project_types.py`
   (marked `TODO`). Same for whether Odoo wants `overhead_cost_percentage` as a
   decimal (`0.08`) or a whole number.
+- The INR (88) and NGN (1500) company rates are placeholders -- set the live
+  rate on each company in Admin → Settings.
 - Furniture prices are entered in CNY and converted with a per-project rate
   that defaults to **7.2** (`project_types.DEFAULT_CNY_PER_USD`) -- update the
   default when it drifts, or override per project.

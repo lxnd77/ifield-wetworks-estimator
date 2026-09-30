@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback, Fragment } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import api, { money, num } from "../api";
-import { laborApplies, bomPerLine, typeLabel, FURNITURE_BOM_CATEGORIES } from "../projectTypes";
+import { laborApplies, bomPerLine, typeLabel, FURNITURE_BOM_CATEGORIES, DEFAULT_FACTORY_WORK_VENDOR } from "../projectTypes";
 import { useCurrentUser } from "../components/RequireAuth";
 
 let tempIdCounter = 0;
@@ -56,6 +56,7 @@ const lineFields = (l) => ({
   dimension: l.dimension || "",
   item_code: l.item_code || "",
   factory_work_cost_cny: l.factory_work_cost_cny ?? null,
+  factory_work_vendor_id: l.factory_work_vendor_id ?? null,
 });
 const locFields = (l) => ({ name: l.name });
 
@@ -78,7 +79,7 @@ const toDraftLine = (l) => ({
   id: l.id, location_id: l.location_id, product_id: l.product_id, qty: l.qty,
   margin_pct_override: l.margin_pct_override, drawing_no: l.drawing_no, remark: l.remark,
   description: l.description, dimension: l.dimension, item_code: l.item_code,
-  factory_work_cost_cny: l.factory_work_cost_cny,
+  factory_work_cost_cny: l.factory_work_cost_cny, factory_work_vendor_id: l.factory_work_vendor_id,
 });
 
 export default function ProjectDetail() {
@@ -93,6 +94,7 @@ export default function ProjectDetail() {
   const [saving, setSaving] = useState(false);
 
   const [supportItems, setSupportItems] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [savedLocations, setSavedLocations] = useState([]);
   const [savedLines, setSavedLines] = useState([]);
   const [draftLocations, setDraftLocations] = useState([]);
@@ -116,6 +118,7 @@ export default function ProjectDetail() {
     if (data.products) setProducts(data.products);
     if (data.selling_companies) setSellingCompanies(data.selling_companies);
     if (data.support_items) setSupportItems(data.support_items);
+    if (data.vendors) setVendors(data.vendors);
     const locs = data.project.locations;
     const lines = data.lines.map(toDraftLine);
     setSavedLocations(locs);
@@ -389,6 +392,7 @@ export default function ProjectDetail() {
             lines={linesByLocation[loc.id] || []}
             products={visibleProducts}
             supportItems={supportItems}
+            vendors={vendors}
             showLabor={showLabor}
             costMap={costMap}
             lineDataById={lineDataById}
@@ -521,7 +525,7 @@ function SummaryStat({ label, value, highlight, warn }) {
   );
 }
 
-function LocationBlock({ location, lines, products, supportItems, showLabor, costMap, lineDataById, project, componentsByLineId, onRemoveLocation, onAddLine, onUpdateLine, onRemoveLine, onSaveComponentCode, onAddComponent, onUpdateComponent, onDeleteComponent }) {
+function LocationBlock({ location, lines, products, supportItems, vendors, showLabor, costMap, lineDataById, project, componentsByLineId, onRemoveLocation, onAddLine, onUpdateLine, onRemoveLine, onSaveComponentCode, onAddComponent, onUpdateComponent, onDeleteComponent }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
@@ -574,6 +578,7 @@ function LocationBlock({ location, lines, products, supportItems, showLabor, cos
                   <td colSpan={editColSpan}>
                     <LineItemForm
                       products={products}
+                      vendors={vendors}
                       showLabor={showLabor}
                       furniture={furniture}
                       initial={l}
@@ -640,6 +645,7 @@ function LocationBlock({ location, lines, products, supportItems, showLabor, cos
                             product={product}
                             components={components}
                             supportItems={supportItems}
+                            vendors={vendors}
                             cnyPerUsd={project.cny_per_usd || 7.2}
                             onAdd={(payload) => onAddComponent(l.id, payload)}
                             onUpdate={onUpdateComponent}
@@ -667,6 +673,7 @@ function LocationBlock({ location, lines, products, supportItems, showLabor, cos
           )}
           <LineItemForm
             products={products}
+            vendors={vendors}
             showLabor={showLabor}
             furniture={furniture}
             onCancel={() => setAdding(false)}
@@ -681,12 +688,13 @@ function LocationBlock({ location, lines, products, supportItems, showLabor, cos
   );
 }
 
-function FurnitureBomEditor({ line, product, components, supportItems, cnyPerUsd, onAdd, onUpdate, onDelete }) {
+function FurnitureBomEditor({ line, product, components, supportItems, vendors, cnyPerUsd, onAdd, onUpdate, onDelete }) {
   const [adding, setAdding] = useState(false);
   // Only the four furniture BOM categories -- wetworks recipe components
   // (Gypsum board, tile, ...) don't belong on a furniture line.
   const pickable = supportItems.filter((s) => FURNITURE_BOM_CATEGORIES.includes(s.purchase_category));
   const fwCny = line.factory_work_cost_cny || 0;
+  const fwVendor = factoryWorkVendorName(vendors, line.factory_work_vendor_id);
 
   return (
     <div className="max-w-3xl">
@@ -720,7 +728,10 @@ function FurnitureBomEditor({ line, product, components, supportItems, cnyPerUsd
               onDelete={() => onDelete(c.id)} />
           ))}
           <tr className="border-b last:border-0 text-ink/60">
-            <td className="py-1.5">Factory Work for {product?.name}{line.item_code ? ` ${line.item_code}` : ""}</td>
+            <td className="py-1.5">
+              Factory Work for {product?.name}{line.item_code ? ` ${line.item_code}` : ""}
+              <span className="ml-1 text-ink/40">&middot; bought from {fwVendor}</span>
+            </td>
             <td className="py-1.5 text-ink/40">{line.item_code || "--"}</td>
             <td className="py-1.5 text-right">1</td>
             <td className="py-1.5 text-right">
@@ -890,7 +901,14 @@ function BomCodeRow({ component, onSave }) {
   );
 }
 
-function LineItemForm({ products, showLabor = true, furniture = false, initial, onCancel, onSubmit }) {
+// Who DAKA buys a furniture line's Factory Work from. A line saved without
+// one gets the default (DEFAULT_FACTORY_WORK_VENDOR) server-side.
+function factoryWorkVendorName(vendors, vendorId) {
+  const v = (vendors || []).find((x) => x.id === vendorId);
+  return v ? v.name : DEFAULT_FACTORY_WORK_VENDOR;
+}
+
+function LineItemForm({ products, vendors = [], showLabor = true, furniture = false, initial, onCancel, onSubmit }) {
   const [productId, setProductId] = useState(initial?.product_id ?? "");
   const [qty, setQty] = useState(initial?.qty ?? "");
   const [margin, setMargin] = useState(initial?.margin_pct_override ?? "");
@@ -900,6 +918,7 @@ function LineItemForm({ products, showLabor = true, furniture = false, initial, 
   const [dimension, setDimension] = useState(initial?.dimension ?? "");
   const [itemCode, setItemCode] = useState(initial?.item_code ?? "");
   const [factoryWork, setFactoryWork] = useState(initial?.factory_work_cost_cny ?? "");
+  const [fwVendorId, setFwVendorId] = useState(initial?.factory_work_vendor_id ?? "");
   const [search, setSearch] = useState("");
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
@@ -918,6 +937,7 @@ function LineItemForm({ products, showLabor = true, furniture = false, initial, 
       dimension: dimension || null,
       item_code: itemCode || null,
       factory_work_cost_cny: furniture ? (factoryWork === "" ? null : Number(factoryWork)) : null,
+      factory_work_vendor_id: furniture && fwVendorId !== "" ? Number(fwVendorId) : null,
     });
   };
 
@@ -959,6 +979,19 @@ function LineItemForm({ products, showLabor = true, furniture = false, initial, 
         <div>
           <label className="text-xs text-ink/60">Factory Work ¥</label>
           <input type="number" step="0.01" value={factoryWork} onChange={(e) => setFactoryWork(e.target.value)} placeholder="per unit, CNY" className="w-24 border rounded-md px-2 py-1.5 text-sm" />
+        </div>
+      )}
+      {furniture && (
+        <div>
+          <label className="text-xs text-ink/60" title="Who the China company buys this line's Factory Work from">
+            Factory Work vendor
+          </label>
+          <select value={fwVendorId} onChange={(e) => setFwVendorId(e.target.value)} className="w-40 border rounded-md px-2 py-1.5 text-sm bg-white">
+            {fwVendorId === "" && <option value="">{DEFAULT_FACTORY_WORK_VENDOR} (default)</option>}
+            {vendors.filter((v) => fwVendorId !== "" || v.name !== DEFAULT_FACTORY_WORK_VENDOR).map((v) => (
+              <option key={v.id} value={v.id}>{v.name}</option>
+            ))}
+          </select>
         </div>
       )}
       <div>

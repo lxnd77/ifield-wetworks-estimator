@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session, joinedload
 
-from . import models, schemas, service, auth, calc, project_types
+from . import models, schemas, service, auth, calc, project_types, uoms
 from .database import Base, engine, get_db
 from .export_excel import (
     build_sale_estimation_workbook, build_bom_workbook, build_product_import_workbooks, norm_code,
@@ -158,7 +158,7 @@ def add_bom_line(product_id: int, payload: schemas.BomLineIn, db: Session = Depe
             raise HTTPException(400, "support_item_id or new_support_item_name required")
         si = models.SupportItem(
             name=payload.new_support_item_name,
-            uom=payload.new_support_item_uom or "Pcs",
+            uom=payload.new_support_item_uom or uoms.DEFAULT,
             default_code=payload.new_support_item_default_code,
         )
         db.add(si)
@@ -659,6 +659,7 @@ def _workspace(db: Session, project: models.Project, include_catalog: bool) -> d
             joinedload(models.SupportItem.default_vendor),
             joinedload(models.SupportItem.purchasing_company),
         ).order_by(models.SupportItem.name).all()
+        out["vendors"] = db.query(models.Vendor).order_by(models.Vendor.name).all()
     return out
 
 
@@ -738,6 +739,7 @@ def save_estimate(project_id: int, payload: schemas.EstimateSaveIn, db: Session 
 
     db.flush()
     for line in kept_lines:
+        _apply_factory_work_vendor(db, line)
         _validate_furniture_line(line)
     out = _workspace(db, project, include_catalog=False)
     # The edits were flushed above, so _workspace's commit-if-changed can't
@@ -765,6 +767,7 @@ def add_estimate_line(project_id: int, payload: schemas.EstimateLineIn, db: Sess
     db.add(line)
     db.flush()
     db.refresh(line)
+    _apply_factory_work_vendor(db, line)
     service.recompute_estimate_line(db, line)
     db.commit()
     db.refresh(line)
@@ -776,6 +779,20 @@ def _get_owned_line(db: Session, line_id: int, user: models.User) -> models.Esti
     if not line or (not user.is_admin and line.project.owner_id != user.id):
         raise HTTPException(404, "estimate line not found")
     return line
+
+
+def _apply_factory_work_vendor(db: Session, line: models.EstimateLine):
+    """Furniture lines always name who their Factory Work is bought from: the
+    estimator's pick if it's a real vendor, else the default ("FAD").
+    Wetworks lines carry none."""
+    if not project_types.bom_per_line(line.project.project_type):
+        line.factory_work_vendor_id = None
+        return
+    if line.factory_work_vendor_id is not None:
+        if db.get(models.Vendor, line.factory_work_vendor_id) is None:
+            raise HTTPException(422, f"Vendor {line.factory_work_vendor_id} doesn't exist.")
+        return
+    line.factory_work_vendor_id = service.default_factory_work_vendor(db).id
 
 
 def _validate_furniture_line(line: models.EstimateLine):
@@ -821,6 +838,7 @@ def update_estimate_line(line_id: int, payload: schemas.EstimateLineIn, db: Sess
     for k, v in payload.model_dump().items():
         setattr(line, k, v)
     db.flush()
+    _apply_factory_work_vendor(db, line)
     _validate_furniture_line(line)
     service.recompute_estimate_line(db, line)
     db.commit()
@@ -989,6 +1007,7 @@ def _load_project_for_export(db: Session, project_id: int, user: models.User) ->
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.product)
         .joinedload(models.Product.bom_lines),
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.location),
+        joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.factory_work_vendor),
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.components).joinedload(
             models.EstimateLineComponent.support_item).joinedload(models.SupportItem.default_vendor),
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.components).joinedload(

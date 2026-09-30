@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../api";
 import { PROJECT_TYPES, typeLabel, laborApplies } from "../projectTypes";
+import { UOMS, DEFAULT_UOM } from "../uoms";
 
 export default function AdminProductDetail() {
   const { id } = useParams();
@@ -497,7 +498,7 @@ function BomLineForm({ supportItems, productUom, initial, onCancel, onSubmit }) 
   const [mode, setMode] = useState("existing");
   const [supportItemId, setSupportItemId] = useState(initial?.support_item_id ?? "");
   const [newName, setNewName] = useState("");
-  const [newUom, setNewUom] = useState(productUom);
+  const [newUom, setNewUom] = useState(UOMS.includes(productUom) ? productUom : DEFAULT_UOM);
   const [qty, setQty] = useState(initial?.qty_per_unit ?? "1");
   const [wastage, setWastage] = useState(initial?.wastage_pct ?? "0");
   const [role, setRole] = useState(initial?.role ?? "fixing");
@@ -546,7 +547,11 @@ function BomLineForm({ supportItems, productUom, initial, onCancel, onSubmit }) 
       ) : (
         <div className="flex gap-2">
           <input required placeholder="Name" value={newName} onChange={(e) => setNewName(e.target.value)} className="flex-1 border rounded-md px-2 py-1.5 text-sm" />
-          <input placeholder="UoM" value={newUom} onChange={(e) => setNewUom(e.target.value)} className="w-24 border rounded-md px-2 py-1.5 text-sm" />
+          <select value={newUom} onChange={(e) => setNewUom(e.target.value)} className="w-32 border rounded-md px-2 py-1.5 text-sm bg-white">
+            {UOMS.map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
         </div>
       )}
       <div className="grid grid-cols-3 gap-2">

@@ -65,6 +65,10 @@ DEFAULT_CNY_PER_USD = 7.2
 # Work -- the product import export puts the Factory Work row on its workbook.
 FACTORY_WORK_PURCHASING_COMPANY = "GUANGZHOU DAKA TRADING CO.,LTD"
 
+# The vendor (by name) that company buys a line's Factory Work from, unless
+# the estimator picks another on the line. Created on first use.
+DEFAULT_FACTORY_WORK_VENDOR = "FAD"
+
 VALUES = tuple(CONFIG)
 
 

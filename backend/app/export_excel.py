@@ -25,15 +25,20 @@ product-import default_code) carries "<project code> <item code>" -- just
 the project code when the item code is blank. The project code is required
 (enforced on project save and export).
 
-Because every exported record is project-specific, the Odoo external id
-columns ("product_id/id", product import "id") are left blank: the catalog's
-Product.odoo_id / SupportItem.odoo_id points at the shared catalog record,
-and sending it with a project-qualified name would make Odoo rename that
-shared record instead of creating the project's own product.
+External ids: every exported product carries a project-specific Odoo
+external id (`export_id()`): "<project name>-P<product id>[-<item code>]"
+for a line product, "...-S<support item id>[-<item code>]" for a BOM item,
+and the line product's id + "-F" for its Factory Work -- no spaces, "-"
+separated. The product import sets it as each row's "id"; the sale
+estimation and BOM sheets reference it in their "/id" columns, so all three
+files point at the same Odoo record. The catalog's Product.odoo_id /
+SupportItem.odoo_id is never used: it points at the shared catalog record,
+which a project-qualified import would rename.
 """
+import re
 from io import BytesIO
 import openpyxl
-from . import models, service, project_types
+from . import models, service, project_types, uoms
 
 
 SALE_ESTIMATION_HEADERS = [
@@ -62,8 +67,8 @@ SALE_ESTIMATION_HEADERS = [
 # company_id is always left blank -- the importing team fills it in per the
 # target Odoo company, this app has no single company to assign per mrp.bom.
 BOM_HEADERS = [
-    "product", "reference", "product_qty", "company_id",
-    "bom_line_ids/product_id", "bom_line_ids/product_qty",
+    "product", "product/id", "reference", "product_qty", "company_id",
+    "bom_line_ids/product_id", "bom_line_ids/product_id/id", "bom_line_ids/product_qty",
 ]
 
 # Odoo's standard product.template xlsx-import convention: header text drives
@@ -71,17 +76,13 @@ BOM_HEADERS = [
 # per row is all the product-import sheet needs (seller_ids is a one2many,
 # but a single value here creates a single vendor pricelist line) -- see
 # build_product_import_workbooks's docstring for how that vendor is chosen
-# per row. "id" is populated from the product's/support item's odoo_id when
-# set (so the row updates that existing Odoo record) and left blank
-# otherwise -- Odoo assigns it on first import; a blank "id" row that's
-# actually a re-import of something already in Odoo will create a duplicate
-# instead of updating it, so fill in odoo_id (via the API/admin screens)
-# once it's known. "standard_price" is populated only on BOM component
-# (support item) rows, from that country's material price for the item --
-# finished-product rows (Manufacture or Buy line items) are left blank since
-# the app doesn't track a standalone purchase price for them.
+# per row. "id" is the project-specific external id (export_id()), so a
+# re-import updates the project's product instead of duplicating it.
+# "product_uom" is the item's Odoo unit (app/uoms.py). "standard_price" is
+# the per-unit cost in the workbook company's own currency (see
+# build_product_import_workbooks).
 PRODUCT_IMPORT_HEADERS = [
-    "id", "name", "default_code", "seller_ids/partner_id", "route_ids",
+    "id", "name", "default_code", "product_uom", "seller_ids/partner_id", "route_ids",
     "purchase_method", "invoice_policy", "detailed_type", "standard_price",
 ]
 
@@ -120,6 +121,37 @@ def factory_work_name(product: models.Product, project: models.Project, item_cod
     component -- the per-project assembly charge. Project + line item code are
     folded in so lines of the same product get distinct Factory Work rows."""
     return qualified_name(f"Factory Work for {product.name}", project, item_code)
+
+
+def _id_part(value) -> str:
+    """Any run of spaces / punctuation -> "-", trimmed."""
+    return re.sub(r"[^A-Za-z0-9]+", "-", str(value or "")).strip("-")
+
+
+def export_id(project: models.Project, record: str, item_code=None, factory_work: bool = False) -> str:
+    """The Odoo external id of a project-specific product: "<project
+    name>-<record>[-<item code>][-F]", e.g. "Riyadh-Corniche-Hotel-P12-CH-01"
+    or, for its Factory Work, "Riyadh-Corniche-Hotel-P12-CH-01-F". `record`
+    is "P<product id>" or "S<support item id>" -- the two tables number
+    independently. The item code is part of it (upper-cased: codes compare
+    case-insensitively) because one catalog product with two codes is two
+    exported products."""
+    parts = [_id_part(project.name) or f"Project-{project.id}", record, _id_part(item_code).upper()]
+    if factory_work:
+        parts.append("F")
+    return "-".join(p for p in parts if p)
+
+
+def product_export_id(project: models.Project, product: models.Product, item_code) -> str:
+    return export_id(project, f"P{product.id}", item_code)
+
+
+def support_item_export_id(project: models.Project, support_item: models.SupportItem, item_code) -> str:
+    return export_id(project, f"S{support_item.id}", item_code)
+
+
+def factory_work_export_id(project: models.Project, product: models.Product, item_code) -> str:
+    return export_id(project, f"P{product.id}", item_code, factory_work=True)
 
 
 # Sentinel standing in for the synthetic Factory Work row while iterating a
@@ -177,6 +209,7 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
 
         line_header = {
             "estimation_line_ids/product_id": line_product_name(project, line),
+            "estimation_line_ids/product_id/id": product_export_id(project, line.product, line.item_code),
             "estimation_line_ids/default_code": reference_code(project, line.item_code),
             "estimation_line_ids/description": line.product.name,
             "estimation_line_ids/location": line.location.name,
@@ -218,6 +251,8 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
                 row.update({
                     "estimation_line_ids/sale_estimation_component_product_line_ids/product_id":
                         factory_work_name(line.product, project, line.item_code),
+                    "estimation_line_ids/sale_estimation_component_product_line_ids/product_id/id":
+                        factory_work_export_id(project, line.product, line.item_code),
                     "estimation_line_ids/sale_estimation_component_product_line_ids/default_code":
                         reference_code(project, line.item_code),
                     "estimation_line_ids/sale_estimation_component_product_line_ids/product_uom_qty": 1,
@@ -226,6 +261,8 @@ def build_sale_estimation_workbook(db, project: models.Project) -> BytesIO:
                 row.update({
                     "estimation_line_ids/sale_estimation_component_product_line_ids/product_id":
                         component_export_name(project, comp),
+                    "estimation_line_ids/sale_estimation_component_product_line_ids/product_id/id":
+                        support_item_export_id(project, comp.support_item, comp.item_code),
                     "estimation_line_ids/sale_estimation_component_product_line_ids/default_code":
                         reference_code(project, comp.item_code),
                     # comp.qty is the total across the line's full qty
@@ -283,6 +320,17 @@ def build_product_import_workbooks(db, project: models.Project) -> list:
     Buy lines and BOM components still get their purchasing-side row, but
     Manufacture line items get no row anywhere (they only ever go on the
     selling sheet).
+
+    Factory Work is bought by the Factory Work company from the line's
+    `factory_work_vendor` (default project_types.DEFAULT_FACTORY_WORK_VENDOR)
+    and sold on to the selling company like any component.
+
+    standard_price is the row's per-unit cost -- a BOM item's unit price, the
+    line's Factory Work charge, or a line product's material + labor cost
+    per unit -- converted from USD into the workbook company's own currency
+    (`currency_code`, at `service.company_fx`: the company's rate, or the
+    project's CNY rate for a CNY company, so CNY-entered furniture prices
+    come back exactly as entered).
     """
     sheets: dict = {}
 
@@ -295,19 +343,21 @@ def build_product_import_workbooks(db, project: models.Project) -> list:
             return None
         key = (type(company), company.id)
         if key not in sheets:
-            sheets[key] = {"name": company.name, "rows": [], "seen": set()}
+            sheets[key] = {"name": company.name, "fx": service.company_fx(project, company),
+                           "rows": [], "seen": set()}
         return sheets[key]
 
-    def add_row(sheet, key, name, default_code, vendor_name, is_manufacture, standard_price=""):
-        if sheet is None or key in sheet["seen"]:
+    def add_row(sheet, row_id, name, default_code, uom, vendor_name, is_manufacture, price_usd):
+        # row_id is the export_id -- unique per exported product, so it's
+        # also the de-duplication key within a workbook.
+        if sheet is None or row_id in sheet["seen"]:
             return
-        sheet["seen"].add(key)
+        sheet["seen"].add(row_id)
         route = "Manufacture,Replenish on Order (MTO)" if is_manufacture else "Buy,Replenish on Order (MTO)"
-        # "id" stays blank -- every row is a project-specific product (see
-        # module docstring).
         sheet["rows"].append([
-            "", name, default_code, vendor_name, route,
-            "On ordered quantities", "Ordered quantities", "Storable Product", standard_price,
+            row_id, name, default_code, uom, vendor_name, route,
+            "On ordered quantities", "Ordered quantities", "Storable Product",
+            round((price_usd or 0.0) * sheet["fx"], 4),
         ])
 
     fw_company_cache = []
@@ -331,12 +381,14 @@ def build_product_import_workbooks(db, project: models.Project) -> list:
         # this line has user-entered components.
         is_manufacture = bool(product.bom_lines) or (furniture and bool(line.components))
 
+        line_id = product_export_id(project, product, line.item_code)
         line_name = line_product_name(project, line)
-        line_key = ("product", product.id, norm_code(line.item_code))
         line_default_code = reference_code(project, line.item_code)
+        line_uom = uoms.normalize(product.uom)
+        line_price = (line.material_cost_per_unit or 0.0) + (line.labor_cost_per_unit or 0.0)
         line_vendor = "" if is_manufacture else purchasing_company_name
-        add_row(selling_sheet, line_key, line_name, line_default_code,
-                line_vendor, is_manufacture)
+        add_row(selling_sheet, line_id, line_name, line_default_code, line_uom,
+                line_vendor, is_manufacture, line_price)
 
         if is_manufacture:
             for comp in line.components:
@@ -346,32 +398,35 @@ def build_product_import_workbooks(db, project: models.Project) -> list:
                 comp_company = support_item.purchasing_company or product.purchasing_company
                 comp_company_name = comp_company.name if comp_company else ""
                 vendor_name = support_item.default_vendor.name if support_item.default_vendor else ""
-                key = ("support_item", support_item.id, norm_code(comp.item_code))
+                comp_id = support_item_export_id(project, support_item, comp.item_code)
                 comp_name = component_export_name(project, comp)
                 comp_default_code = reference_code(project, comp.item_code)
-                standard_price = round(comp.unit_cost, 4)
-                add_row(sheet_for(comp_company), key, comp_name,
-                        comp_default_code, vendor_name, False, standard_price=standard_price)
-                add_row(selling_sheet, key, comp_name,
-                        comp_default_code, comp_company_name, False, standard_price=standard_price)
+                comp_uom = uoms.normalize(support_item.uom)
+                add_row(sheet_for(comp_company), comp_id, comp_name, comp_default_code, comp_uom,
+                        vendor_name, False, comp.unit_cost)
+                add_row(selling_sheet, comp_id, comp_name, comp_default_code, comp_uom,
+                        comp_company_name, False, comp.unit_cost)
             if furniture and line.components:
-                # Factory Work: a Buy line on both sheets, vendor = the Factory
-                # Work purchasing company (always the China entity), priced
-                # like a component: the line's CNY charge in USD (qty is 1).
+                # Factory Work: a Buy line on both sheets, priced like a
+                # component: the line's CNY charge (qty is 1).
                 fw_company = factory_work_company()
                 fw_company_name = fw_company.name if fw_company else ""
+                if line.factory_work_vendor is not None:
+                    fw_vendor = line.factory_work_vendor.name
+                else:
+                    fw_vendor = project_types.DEFAULT_FACTORY_WORK_VENDOR
+                fw_id = factory_work_export_id(project, product, line.item_code)
                 fw_name = factory_work_name(product, project, line.item_code)
-                fw_key = ("factory_work", product.id, norm_code(line.item_code))
                 fw_code = reference_code(project, line.item_code)
-                fw_price = round((line.factory_work_cost_cny or 0.0) / service.furniture_fx(project), 4)
-                add_row(sheet_for(fw_company), fw_key, fw_name, fw_code, fw_company_name, False,
-                        standard_price=fw_price)
-                add_row(selling_sheet, fw_key, fw_name, fw_code, fw_company_name, False,
-                        standard_price=fw_price)
+                fw_price = (line.factory_work_cost_cny or 0.0) / service.furniture_fx(project)
+                add_row(sheet_for(fw_company), fw_id, fw_name, fw_code, uoms.FACTORY_WORK,
+                        fw_vendor, False, fw_price)
+                add_row(selling_sheet, fw_id, fw_name, fw_code, uoms.FACTORY_WORK,
+                        fw_company_name, False, fw_price)
         else:
             purchasing_vendor = product.default_vendor.name if product.default_vendor else ""
-            add_row(purchasing_sheet, line_key, line_name, line_default_code,
-                    purchasing_vendor, is_manufacture)
+            add_row(purchasing_sheet, line_id, line_name, line_default_code, line_uom,
+                    purchasing_vendor, is_manufacture, line_price)
 
     workbooks = []
     for sheet in sheets.values():
@@ -409,31 +464,45 @@ def build_bom_workbook(db, project: models.Project) -> BytesIO:
             continue
         seen.add(key)
 
-        product_name = line_product_name(project, line)
-        reference = reference_code(project, line.item_code)
+        head = {
+            "product": line_product_name(project, line),
+            "product/id": product_export_id(project, line.product, line.item_code),
+            "reference": reference_code(project, line.item_code),
+            "product_qty": 1,
+        }
 
+        # (component name, component external id, qty per unit)
         if project_types.bom_per_line(project.project_type):
             # Furniture: recipe is per-line -- (support item, user qty_per_unit)
             # plus the qty-1 Factory Work row. No wastage. Component names are
             # qualified with the project + component item code.
-            bom = [(component_export_name(project, c), c.qty_per_unit or 0.0)
+            bom = [(component_export_name(project, c),
+                    support_item_export_id(project, c.support_item, c.item_code),
+                    c.qty_per_unit or 0.0)
                    for c in line.components]
             if line.components:
-                bom.append((factory_work_name(line.product, project, line.item_code), 1))
+                bom.append((factory_work_name(line.product, project, line.item_code),
+                            factory_work_export_id(project, line.product, line.item_code), 1))
         else:
             # Wetworks: the recipe drives quantities; the component's item
             # code (optional, set in "BOM codes") qualifies its name.
             codes = {c.support_item_id: c.item_code for c in line.components}
             bom = [(qualified_name(b.support_item.name, project, codes.get(b.support_item_id)),
+                    support_item_export_id(project, b.support_item, codes.get(b.support_item_id)),
                     b.qty_per_unit * (1 + (b.wastage_pct or 0)))
                    for b in line.product.bom_lines]
 
         if not bom:
-            ws.append([product_name, reference, 1, "", "", ""])
+            ws.append([head.get(h, "") for h in BOM_HEADERS])
             continue
-        for i, (comp_name, qty) in enumerate(bom):
-            ws.append([product_name if i == 0 else "", reference if i == 0 else "",
-                       1 if i == 0 else "", "", comp_name, round(qty, 6)])
+        for i, (comp_name, comp_id, qty) in enumerate(bom):
+            row = dict(head) if i == 0 else {}
+            row.update({
+                "bom_line_ids/product_id": comp_name,
+                "bom_line_ids/product_id/id": comp_id,
+                "bom_line_ids/product_qty": round(qty, 6),
+            })
+            ws.append([row.get(h, "") for h in BOM_HEADERS])
 
     buf = BytesIO()
     wb.save(buf)
