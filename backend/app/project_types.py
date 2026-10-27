@@ -69,6 +69,10 @@ FACTORY_WORK_PURCHASING_COMPANY = "GUANGZHOU DAKA TRADING CO.,LTD"
 # the estimator picks another on the line. Created on first use.
 DEFAULT_FACTORY_WORK_VENDOR = "FAD"
 
+# Every new project's margin. Only admins see or change margins (the project
+# default and per-line overrides); for everyone else the API keeps this.
+DEFAULT_MARGIN_PCT = 15.0
+
 VALUES = tuple(CONFIG)
 
 

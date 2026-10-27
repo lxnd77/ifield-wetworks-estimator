@@ -610,19 +610,14 @@ def test_wetworks_exports_qualify_names_and_codes():
         assert data[0][col("estimation_line_ids/default_code")] == "PJ W1"
         assert data[0][col(c + "product_id")] == f"{comp.support_item.name} PJ"
         assert data[0][col(c + "default_code")] == "PJ"
-        # project-specific external ids -- never the catalog odoo ids
-        pslug = project.name.replace(" ", "-").replace("_", "-")
-        line_id = f"{pslug}-P{line.product.id}-W1"
-        comp_id = f"{pslug}-S{comp.support_item.id}"
-        assert data[0][col("estimation_line_ids/product_id/id")] == line_id
-        assert data[0][col(c + "product_id/id")] == comp_id
+        # no external-id columns: sale estimation / BOM match by name
+        assert not any(h.endswith("/id") for h in header)
 
         bh, bd = _sheet_rows(export_excel.build_bom_workbook(db, project))
         assert bd[0][bh.index("product")] == f"{line.product.name} PJ W1"
         assert bd[0][bh.index("reference")] == "PJ W1"
         assert bd[0][bh.index("bom_line_ids/product_id")] == f"{comp.support_item.name} PJ"
-        assert bd[0][bh.index("product/id")] == line_id
-        assert bd[0][bh.index("bom_line_ids/product_id/id")] == comp_id
+        assert not any(h.endswith("/id") for h in bh)
 
         sc = models.SellingCompany(name="SC wtest")
         db.add(sc)
@@ -632,8 +627,8 @@ def test_wetworks_exports_qualify_names_and_codes():
         by_name = _rows_by_name(dict(export_excel.build_product_import_workbooks(db, project))["SC wtest"])
         assert by_name[f"{line.product.name} PJ W1"]["default_code"] == "PJ W1"
         assert by_name[f"{comp.support_item.name} PJ"]["default_code"] == "PJ"
-        assert by_name[f"{line.product.name} PJ W1"]["id"] == line_id
-        assert by_name[f"{comp.support_item.name} PJ"]["id"] == comp_id
+        # no external-id column on the product import either
+        assert "id" not in by_name[f"{line.product.name} PJ W1"]
     finally:
         db.close()
 
@@ -901,7 +896,7 @@ def test_company_currency_defaults_from_country(client):
     assert (ng["currency_code"], ng["fx_rate_to_usd"]) == ("NGN", 1600)
 
 
-def test_product_import_uom_currency_and_ids():
+def test_product_import_uom_and_currency():
     """product_uom on every row; standard_price on every row, in the workbook
     company's currency (a CNY company gets the CNY price as entered)."""
     db = SessionLocal()
@@ -927,13 +922,9 @@ def test_product_import_uom_currency_and_ids():
         product_name = f"{line.product.name} PJ ch1"
         fabric_name = f"{comp.support_item.name} PJ FB1"
         fw_name = f"Factory Work for {line.product.name} PJ ch1"
-        pslug = line.project.name.replace(" ", "-").replace("_", "-")
 
         hk, cn = books[sc.name], books[daka.name]
-        # ids
-        assert hk[product_name]["id"] == f"{pslug}-P{line.product.id}-CH1"
-        assert hk[fabric_name]["id"] == cn[fabric_name]["id"] == f"{pslug}-S{comp.support_item.id}-FB1"
-        assert hk[fw_name]["id"] == cn[fw_name]["id"] == f"{pslug}-P{line.product.id}-CH1-F"
+        assert "id" not in hk[product_name]
         # units: product "Pcs" (legacy) -> Units, support item m, Factory Work Units
         assert hk[product_name]["product_uom"] == "Units"
         assert hk[fabric_name]["product_uom"] == cn[fabric_name]["product_uom"] == "m"
@@ -985,3 +976,106 @@ def test_factory_work_vendor_defaults_to_fad_and_is_selectable(client):
         assert fw["seller_ids/partner_id"] == other["name"]
     finally:
         db.close()
+
+
+# ---- margins are admin-only ----
+
+def test_margin_is_admin_only(client):
+    alice = _auth(_login(client, "alice", "alicepass"))
+    admin = _auth(_login(client, "admin", "adminpass"))
+    cid = _country_id(client, _login(client, "alice", "alicepass"))
+    body = {"name": "Margin proj", "code": "MG", "country_id": cid, "project_type": "loose_furniture",
+            "default_margin_pct": 40}
+    p = client.post("/api/projects", headers=alice, json=body).json()
+    assert p["default_margin_pct"] == project_types.DEFAULT_MARGIN_PCT == 15
+    # a non-admin edit can't move it; an admin's can
+    assert client.put(f"/api/projects/{p['id']}", headers=alice, json=body).json()["default_margin_pct"] == 15
+    assert client.put(f"/api/projects/{p['id']}", headers=admin,
+                      json={**body, "default_margin_pct": 25}).json()["default_margin_pct"] == 25
+    assert client.put(f"/api/projects/{p['id']}", headers=alice, json=body).json()["default_margin_pct"] == 25
+
+    prod = client.post("/api/products", headers=admin, json={
+        "name": f"M chair {uuid.uuid4().hex[:6]}", "uom": "Pcs", "category": "Seating",
+        "product_type": "loose_furniture"}).json()["id"]
+    loc = client.post(f"/api/projects/{p['id']}/locations", headers=alice, json={"name": "L"}).json()["id"]
+    line = client.post(f"/api/projects/{p['id']}/estimate-lines", headers=alice,
+                       json={"location_id": loc, "product_id": prod, "qty": 1, "margin_pct_override": 50}).json()
+    assert line["margin_pct_override"] is None
+    r = _save(client, admin, p["id"], [{"id": loc, "name": "L"}],
+              [{"id": line["id"], "location_id": loc, "product_id": prod, "qty": 1, "margin_pct_override": 30}])
+    assert r.json()["lines"][0]["margin_pct_override"] == 30
+    # a non-admin save keeps the admin's override, new lines get none
+    r = _save(client, alice, p["id"], [{"id": loc, "name": "L"}],
+              [{"id": line["id"], "location_id": loc, "product_id": prod, "qty": 2, "margin_pct_override": None},
+               {"location_id": loc, "product_id": prod, "qty": 1, "margin_pct_override": 99}])
+    assert [l["margin_pct_override"] for l in r.json()["lines"]] == [30, None]
+
+
+# ---- supplier BOQ ----
+
+def _boq_sheets(buf):
+    wb = openpyxl.load_workbook(buf)
+    out = {}
+    for ws in wb.worksheets:
+        rows = list(ws.iter_rows(values_only=True))
+        h = next(i for i, r in enumerate(rows) if r and r[0] == "No.")
+        header = rows[h]
+        out[ws.title] = [dict(zip(header, r)) for r in rows[h + 1:] if isinstance(r[0], int)]
+    return out
+
+
+def test_supplier_boq_totals_by_category(client):
+    from app import export_boq
+    db = SessionLocal()
+    try:
+        line = _make_line(db, "loose_furniture", factory_work_cny=5.0, item_code="CH1", comp_code="FB1",
+                          comp_qty_per_unit=2.0, project_code="PJ")
+        project = line.project
+        # the same fabric + code on a second line of the same product, plus an
+        # unfinished line (no code, no BOM) -- the BOQ doesn't validate
+        line2 = models.EstimateLine(project_id=project.id, location_id=line.location_id,
+                                    product_id=line.product_id, qty=1.0, item_code="CH1", remark="arm")
+        line3 = models.EstimateLine(project_id=project.id, location_id=line.location_id,
+                                    product_id=line.product_id, qty=4.0)
+        db.add_all([line2, line3])
+        db.flush()
+        line2.components.append(models.EstimateLineComponent(
+            support_item_id=line.components[0].support_item_id, qty_per_unit=2.0, unit_price_cny=10.0,
+            item_code="fb1", qty=0.0, unit_cost=0.0, total_cost=0.0))
+        db.commit()
+        for ln in project.estimate_lines:
+            service.recompute_estimate_line(db, ln)
+        db.commit()
+
+        sheets = _boq_sheets(export_boq.build_supplier_boq_workbook(project))
+        assert list(sheets) == ["BOQ", "Fabric", "Factory Work"]
+        assert [(r["Item Code"], r["Qty"], r["Remarks"]) for r in sheets["BOQ"]] == [
+            ("PJ CH1", 3, None), ("PJ CH1", 1, "arm"), ("PJ", 4, None)]
+        assert all(r["Unit Price"] is None for r in sheets["BOQ"])
+        (fabric,) = sheets["Fabric"]
+        assert (fabric["Item Code"], fabric["Total Qty"], fabric["Used In"]) == ("PJ FB1", 8, "PJ CH1")
+        assert fabric["Total"].startswith("=IF(")
+        assert [(r["Item Code"], r["Total Qty"]) for r in sheets["Factory Work"]] == [("PJ CH1", 4), ("PJ", 4)]
+    finally:
+        db.close()
+
+
+def test_supplier_boq_endpoint_skips_export_checks(client):
+    token = _login(client, "alice", "alicepass")
+    h = _auth(token)
+    prod, si, pid, loc = _furniture_project(client, h, _country_id(client, token))
+    ln = client.post(f"/api/projects/{pid}/estimate-lines", headers=h,
+                     json={"location_id": loc, "product_id": prod, "qty": 2}).json()["id"]
+    db = SessionLocal()
+    try:  # a component without a code or price: unfinished, can't go to Odoo yet
+        db.add(models.EstimateLineComponent(estimate_line_id=ln, support_item_id=si, qty_per_unit=1.0,
+                                            qty=0.0, unit_cost=0.0, total_cost=0.0))
+        db.commit()
+    finally:
+        db.close()
+    assert client.get(f"/api/projects/{pid}/export/sale-estimation", headers=h).status_code == 422
+    r = client.get(f"/api/projects/{pid}/export/supplier-boq", headers=h)
+    assert r.status_code == 200
+    assert r.headers["content-disposition"] == 'attachment; filename="BOQ_F_proj.xlsx"'
+    from io import BytesIO
+    assert set(_boq_sheets(BytesIO(r.content))) == {"BOQ", "Fabric", "Factory Work"}

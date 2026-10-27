@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Optional, List
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
-from . import uoms, currencies
+from . import uoms, currencies, project_types
 
 
 class VendorOut(BaseModel):
@@ -336,7 +336,8 @@ class ProjectIn(BaseModel):
     estimator_name: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
-    default_margin_pct: float = 0.0
+    # Admin-only: ignored for other users (see main._guard_project_margin).
+    default_margin_pct: float = project_types.DEFAULT_MARGIN_PCT
     display_currency: str = "USD"
     cny_per_usd: Optional[float] = None
     notes: Optional[str] = None
