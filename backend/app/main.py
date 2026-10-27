@@ -17,6 +17,7 @@ from .database import Base, engine, get_db
 from .export_excel import (
     build_sale_estimation_workbook, build_bom_workbook, build_product_import_workbooks, norm_code,
 )
+from .export_boq import build_supplier_boq_workbook
 
 Base.metadata.create_all(bind=engine)
 
@@ -517,10 +518,26 @@ def _validate_project_payload(payload: schemas.ProjectIn):
         raise HTTPException(422, "cny_per_usd must be greater than 0")
 
 
+def _guard_project_margin(data: dict, user: models.User, project: models.Project = None):
+    """Margins are admin-only: anyone else gets the project's current default
+    margin (DEFAULT_MARGIN_PCT on a new project), whatever they sent."""
+    if not user.is_admin:
+        data["default_margin_pct"] = (project.default_margin_pct if project is not None
+                                      else project_types.DEFAULT_MARGIN_PCT)
+
+
+def _guard_line_margin(data: dict, user: models.User, line: models.EstimateLine = None):
+    """Per-line margin overrides are admin-only: anyone else keeps the line's
+    current override (none on a new line)."""
+    if not user.is_admin:
+        data["margin_pct_override"] = line.margin_pct_override if line is not None else None
+
+
 @app.post("/api/projects", response_model=schemas.ProjectOut)
 def create_project(payload: schemas.ProjectIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     _validate_project_payload(payload)
     data = payload.model_dump()
+    _guard_project_margin(data, user)
     # Furniture: snapshot the CNY->USD rate so a saved estimate doesn't move
     # when the app default changes later.
     if project_types.bom_per_line(payload.project_type) and not data.get("cny_per_usd"):
@@ -536,7 +553,9 @@ def create_project(payload: schemas.ProjectIn, db: Session = Depends(get_db), us
 def update_project(project_id: int, payload: schemas.ProjectIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     p = _get_owned_project(db, project_id, user)
     _validate_project_payload(payload)
-    for k, v in payload.model_dump().items():
+    data = payload.model_dump()
+    _guard_project_margin(data, user, p)
+    for k, v in data.items():
         setattr(p, k, v)
     db.flush()
     _recompute_all_lines(db, p)
@@ -725,9 +744,11 @@ def save_estimate(project_id: int, payload: schemas.EstimateSaveIn, db: Session 
             line = existing_lines.get(line_in.id)
             if line is None:
                 raise HTTPException(422, f"Line {line_in.id} does not belong to this project.")
+            _guard_line_margin(fields, user, line)
             for k, v in fields.items():
                 setattr(line, k, v)
         else:
+            _guard_line_margin(fields, user)
             line = models.EstimateLine(**fields)
             project.estimate_lines.append(line)
         line.location = loc
@@ -763,7 +784,9 @@ def list_estimate_lines(project_id: int, db: Session = Depends(get_db), user: mo
 @app.post("/api/projects/{project_id}/estimate-lines", response_model=schemas.EstimateLineOut)
 def add_estimate_line(project_id: int, payload: schemas.EstimateLineIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     _get_owned_project(db, project_id, user)
-    line = models.EstimateLine(project_id=project_id, **payload.model_dump())
+    data = payload.model_dump()
+    _guard_line_margin(data, user)
+    line = models.EstimateLine(project_id=project_id, **data)
     db.add(line)
     db.flush()
     db.refresh(line)
@@ -835,7 +858,9 @@ def _validate_furniture_component(db: Session, comp: models.EstimateLineComponen
 @app.put("/api/estimate-lines/{line_id}", response_model=schemas.EstimateLineOut)
 def update_estimate_line(line_id: int, payload: schemas.EstimateLineIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     line = _get_owned_line(db, line_id, user)
-    for k, v in payload.model_dump().items():
+    data = payload.model_dump()
+    _guard_line_margin(data, user, line)
+    for k, v in data.items():
         setattr(line, k, v)
     db.flush()
     _apply_factory_work_vendor(db, line)
@@ -997,7 +1022,20 @@ def export_product_import(project_id: int, db: Session = Depends(get_db), user: 
     )
 
 
-def _load_project_for_export(db: Session, project_id: int, user: models.User) -> models.Project:
+@app.get("/api/projects/{project_id}/export/supplier-boq")
+def export_supplier_boq(project_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+    """The supplier-facing BOQ (export_boq.py). Not an Odoo import, so it
+    skips the export-readiness checks: an unfinished estimate is the point."""
+    project = _load_project_for_export(db, project_id, user, validate=False)
+    buf = build_supplier_boq_workbook(project)
+    filename = f"BOQ_{project.name.replace(' ', '_')}.xlsx"
+    return StreamingResponse(
+        buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _load_project_for_export(db: Session, project_id: int, user: models.User, validate: bool = True) -> models.Project:
     project = _get_owned_project(db, project_id, user, options=[
         joinedload(models.Project.selling_company),
         joinedload(models.Project.estimate_lines).joinedload(models.EstimateLine.product)
@@ -1015,7 +1053,8 @@ def _load_project_for_export(db: Session, project_id: int, user: models.User) ->
     ])
     _recompute_all_lines(db, project)
     _commit_if_changed(db)
-    _validate_project_for_export(project)
+    if validate:
+        _validate_project_for_export(project)
     return project
 
 

@@ -59,12 +59,24 @@ Keys compare via `export_excel.norm_code` (trimmed, case-insensitive). Codes
 may repeat: same product + code on two furniture lines must carry the same BOM
 (checked at export, `_furniture_bom_signature` — not on save, since lines are
 mid-edit then); same support item + code must carry the same CNY price
-(checked on component save and export). Every exported product also carries a
-project-specific external id (`export_excel.export_id`):
-`<project name>-P<product id>[-<ITEM CODE>]`, `...-S<support item id>[...]`
-for BOM items, `...-F` suffix for Factory Work — the product-import `id`,
-referenced by the sale-estimation / BOM `/id` columns. Catalog `odoo_id`s are
-never exported: they belong to the shared catalog record.
+(checked on component save and export). No export has an external-id column
+(`id` / `.../id`) — everything matches by qualified name;
+`export_excel.export_id` survives only as the product import's internal
+de-duplication key. Catalog `odoo_id`s are never exported: they belong to
+the shared catalog record.
+
+Margins are admin-only: `main._guard_project_margin` / `_guard_line_margin`
+make the API ignore margin values from non-admins (new projects get
+`project_types.DEFAULT_MARGIN_PCT` = 15), and the UI hides every margin
+field from them.
+
+A fourth download, the **supplier BOQ** (`app/export_boq.py`,
+`GET .../export/supplier-boq`), is a branded, cost-free RFQ workbook for
+suppliers: a line sheet plus one sheet per BOM purchase category (furniture:
+Fabric / Stone / Metal / Accessories + Factory Work), items totalled per
+support item + code. It skips `_validate_project_for_export`, since unfinished
+estimates are what it's for. Its logo (`app/assets/ifield_logo.png`) needs
+Pillow; without it the sheet just drops the image.
 
 Product import also carries `product_uom` (units are restricted to the Odoo
 list in `app/uoms.py`, mirrored in `frontend/src/uoms.js`; legacy spellings

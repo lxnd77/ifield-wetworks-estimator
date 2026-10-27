@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
+import { PageLoading } from "../components/Spinner";
 import { PROJECT_TYPES, typeLabel } from "../projectTypes";
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
+  const [loaded, setLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [productType, setProductType] = useState("");
 
   useEffect(() => {
-    api.get("/products").then((r) => setProducts(r.data));
+    api.get("/products").then((r) => setProducts(r.data)).finally(() => setLoaded(true));
   }, []);
 
   // Category options follow the selected type, so "Wetworks" only lists
@@ -62,6 +64,7 @@ export default function AdminProducts() {
         </select>
       </div>
 
+      {!loaded ? <PageLoading label="Loading products..." /> : (
       <div className="bg-white border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -100,6 +103,7 @@ export default function AdminProducts() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

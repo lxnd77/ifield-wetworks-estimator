@@ -1,17 +1,23 @@
 import axios from "axios";
 import { getToken, clearToken } from "./auth";
+import { requestStarted, requestFinished } from "./loading";
 
 const api = axios.create({ baseURL: "/api" });
 
 api.interceptors.request.use((config) => {
   const token = getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  requestStarted();
   return config;
 });
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    requestFinished();
+    return res;
+  },
   (err) => {
+    requestFinished();
     if (err?.response?.status === 401) {
       clearToken();
       if (location.pathname !== "/login") location.href = "/login";

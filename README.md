@@ -165,14 +165,9 @@ export until it's set). In all three exports:
   ones are required);
 - two lines with the same product and code are the same product: one mrp.bom,
   one product-import row;
-- every product carries a project-specific Odoo external id, no spaces, `-`
-  separated: `<project name>-P<product id>[-<item code>]` for a line product,
-  `<project name>-S<support item id>[-<item code>]` for a BOM item, and the
-  line product's id + `-F` for its Factory Work (e.g.
-  `Riyadh-Corniche-Hotel-P133-LC-01-F`). It's the Product Import `id`, and the
-  Sale Estimation / BOM sheets reference it in their `/id` columns
-  (`product_id/id`, `product/id`, `bom_line_ids/product_id/id`). The catalog's
-  `odoo_id` is never exported -- it belongs to the shared catalog record.
+- no sheet carries an external-id column (`id` / `.../id`): all three
+  reference products by their qualified name. The catalog's `odoo_id` is never
+  exported -- it belongs to the shared catalog record.
 
 ### Labor cost (wetworks only)
 
@@ -271,6 +266,32 @@ prices come back exactly as entered in CNY. A line product's price is its cost
 per unit (material + labor); a BOM item's is its unit price; Factory Work's is
 the line's charge.
 
+## Supplier BOQ
+
+**Supplier BOQ for pricing** (project page) downloads an I-Field-branded
+workbook to send to suppliers for quotes. It shows no costs, margins or
+vendors, and it works on an **unfinished** estimate: none of the export
+checks run, so blank codes, prices or BOMs are fine. Sheets:
+
+- **BOQ**: one row per line (location, item code, item, description,
+  dimension, drawing no, unit, qty, remarks);
+- one sheet per BOM category: furniture **Fabric / Stone / Metal /
+  Accessories**, then **Factory Work** (per product + item code); wetworks
+  recipe items go on one **Materials** sheet. Each item is totalled across the
+  project by support item + item code, with a "Used In" list of line codes.
+
+Every sheet has shaded Unit Price cells, a Total formula and a grand total,
+plus shaded Supplier / currency / validity / contact fields for the supplier
+to fill in. Built by `backend/app/export_boq.py`.
+
+## Margins
+
+Margins are **admin-only**. New projects default to 15%
+(`project_types.DEFAULT_MARGIN_PCT`). Only admins see the margin (project
+header, the line Margin column) or can change it (the project default under
+"Edit project code ... / margin", per-line overrides). The API ignores margin
+values sent by anyone else and keeps the current ones.
+
 ## Project layout
 
 ```
@@ -281,6 +302,7 @@ backend/
     calc.py            costing engine (pure functions, unit-testable)
     service.py         recompute + totals, shared by API and export
     export_excel.py    the three Odoo-format exports
+    export_boq.py      the supplier-facing BOQ (no costs, no validation)
     seed_catalog.json  the catalog seed.py actually loads (live admin-cleaned snapshot)
     seed_products.py   original verbatim Wetworks Product Master (historical reference only)
     seed_ksa.py        KSA coverage/BOM/country data reverse-engineered from workbooks (historical)

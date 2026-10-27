@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api";
+import { PageLoading } from "../components/Spinner";
 import { useCurrentUser } from "../components/RequireAuth";
 import { PROJECT_TYPES, typeConfig, typeLabel } from "../projectTypes";
 
 export default function ProjectsList() {
   const currentUser = useCurrentUser();
   const [projects, setProjects] = useState([]);
+  const [loaded, setLoaded] = useState(false);
   const [countries, setCountries] = useState([]);
   const [sellingCompanies, setSellingCompanies] = useState([]);
   const [showNew, setShowNew] = useState(false);
@@ -14,7 +16,7 @@ export default function ProjectsList() {
   const navigate = useNavigate();
 
   const load = () => {
-    api.get("/projects").then((r) => setProjects(r.data));
+    api.get("/projects").then((r) => setProjects(r.data)).finally(() => setLoaded(true));
     api.get("/countries").then((r) => setCountries(r.data));
     api.get("/selling-companies").then((r) => setSellingCompanies(r.data));
   };
@@ -47,7 +49,9 @@ export default function ProjectsList() {
 
       {error && <div className="text-xs text-red-600 mb-3">{error}</div>}
 
-      {projects.length === 0 && (
+      {!loaded && <PageLoading label="Loading projects..." />}
+
+      {loaded && projects.length === 0 && (
         <div className="text-slate-400 text-sm bg-white border rounded-lg p-8 text-center">
           No projects yet. Create one to start an estimate.
         </div>
@@ -98,6 +102,8 @@ export default function ProjectsList() {
 }
 
 function NewProjectModal({ countries, sellingCompanies, onClose, onCreated }) {
+  // Margins are admin-only; everyone else's projects get the 15% default.
+  const isAdmin = !!useCurrentUser()?.is_admin;
   const [form, setForm] = useState({
     name: "",
     code: "",
@@ -203,10 +209,12 @@ function NewProjectModal({ countries, sellingCompanies, onClose, onCreated }) {
             <input type="date" required={datesRequired} value={form.end_date} onChange={set("end_date")} className="w-full border rounded-md px-3 py-2 text-sm" />
           </div>
         </div>
-        <div>
-          <label className="text-xs text-slate-500">Default margin %</label>
-          <input type="number" step="0.1" value={form.default_margin_pct} onChange={set("default_margin_pct")} className="w-full border rounded-md px-3 py-2 text-sm" />
-        </div>
+        {isAdmin && (
+          <div>
+            <label className="text-xs text-slate-500">Default margin %</label>
+            <input type="number" step="0.1" value={form.default_margin_pct} onChange={set("default_margin_pct")} className="w-full border rounded-md px-3 py-2 text-sm" />
+          </div>
+        )}
         {error && <div className="text-xs text-red-600">{error}</div>}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-md border">Cancel</button>

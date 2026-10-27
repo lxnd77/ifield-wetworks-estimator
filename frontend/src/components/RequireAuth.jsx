@@ -2,6 +2,7 @@ import { useEffect, useState, createContext, useContext } from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import api from "../api";
 import { getToken, clearToken } from "../auth";
+import { PageLoading } from "./Spinner";
 
 const UserContext = createContext(null);
 export const useCurrentUser = () => useContext(UserContext);
@@ -27,7 +28,7 @@ export default function RequireAuth() {
     );
   }, []);
 
-  if (status === "checking") return null;
+  if (status === "checking") return <div className="min-h-screen bg-cream"><PageLoading /></div>;
   if (status === "fail") return <Navigate to="/login" replace />;
 
   return (

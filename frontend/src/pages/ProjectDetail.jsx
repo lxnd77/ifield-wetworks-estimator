@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback, Fragment } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import api, { money, num } from "../api";
+import { PageLoading, Spinner } from "../components/Spinner";
 import { laborApplies, bomPerLine, typeLabel, FURNITURE_BOM_CATEGORIES, DEFAULT_FACTORY_WORK_VENDOR } from "../projectTypes";
 import { useCurrentUser } from "../components/RequireAuth";
 
@@ -82,6 +83,14 @@ const toDraftLine = (l) => ({
   factory_work_cost_cny: l.factory_work_cost_cny, factory_work_vendor_id: l.factory_work_vendor_id,
 });
 
+const EXPORTS = [
+  ["sale-estimation", "Export Sale Estimation (.xlsx)"],
+  ["bom", "Export BOM (.xlsx)"],
+  ["product-import", "Export Product Import for Odoo (.zip)"],
+  // Supplier-facing, no costs; works on an unfinished estimate.
+  ["supplier-boq", "Supplier BOQ for pricing (.xlsx)"],
+];
+
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -92,6 +101,7 @@ export default function ProjectDetail() {
   const [sellingCompanies, setSellingCompanies] = useState([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(null); // export kind in flight
 
   const [supportItems, setSupportItems] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -281,9 +291,11 @@ export default function ProjectDetail() {
   };
 
   const download = async (kind) => {
-    if (dirty && !(await doSave())) return;
+    if (exporting) return;
+    setExporting(kind);
     setError("");
     try {
+      if (dirty && !(await doSave())) return;
       const res = await api.get(`/projects/${id}/export/${kind}`, { responseType: "blob" });
       const disposition = res.headers["content-disposition"] || "";
       const match = disposition.match(/filename="?([^"]+)"?/);
@@ -301,6 +313,8 @@ export default function ProjectDetail() {
         try { detail = JSON.parse(await err.response.data.text())?.detail; } catch { /* ignore */ }
       }
       setError(detail || "Export failed. Add at least one estimate line first.");
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -318,7 +332,7 @@ export default function ProjectDetail() {
   if (!project) {
     return error
       ? <div className="text-xs text-red-600">{error} <button onClick={load} className="text-ruby hover:underline">Retry</button></div>
-      : <div className="text-ink/40 text-sm">Loading...</div>;
+      : <PageLoading label="Loading project..." />;
   }
 
   return (
@@ -336,7 +350,8 @@ export default function ProjectDetail() {
                 {typeLabel(project.project_type)}
               </span>
               {project.country.name}
-              {project.start_date && <> &middot; {project.start_date} &rarr; {project.end_date}</>} &middot; margin {project.default_margin_pct}%
+              {project.start_date && <> &middot; {project.start_date} &rarr; {project.end_date}</>}
+              {currentUser?.is_admin && <> &middot; margin {project.default_margin_pct}%</>}
               {project.selling_company && <> &middot; sold via {project.selling_company.name}</>}
               {project.country.is_template && (
                 <span className="ml-2 text-amber-600 font-medium">country data not yet configured</span>
@@ -349,15 +364,13 @@ export default function ProjectDetail() {
                 {saving ? "Saving..." : "Save changes"}
               </button>
             )}
-            <button onClick={() => download("sale-estimation")} className="text-sm px-3 py-2 rounded-md border bg-white hover:bg-slate-50">
-              Export Sale Estimation (.xlsx)
-            </button>
-            <button onClick={() => download("bom")} className="text-sm px-3 py-2 rounded-md border bg-white hover:bg-slate-50">
-              Export BOM (.xlsx)
-            </button>
-            <button onClick={() => download("product-import")} className="text-sm px-3 py-2 rounded-md border bg-white hover:bg-slate-50">
-              Export Product Import for Odoo (.zip)
-            </button>
+            {EXPORTS.map(([kind, label]) => (
+              <button key={kind} onClick={() => download(kind)} disabled={!!exporting}
+                className="text-sm px-3 py-2 rounded-md border bg-white hover:bg-slate-50 disabled:opacity-60 disabled:cursor-wait inline-flex items-center gap-2">
+                {exporting === kind && <Spinner className="h-3.5 w-3.5 text-ruby" />}
+                {exporting === kind ? "Exporting..." : label}
+              </button>
+            ))}
             {currentUser?.is_admin && (
               <button onClick={deleteProject} title="Delete project"
                 className="text-sm px-3 py-2 rounded-md border border-red-200 text-red-600 bg-white hover:bg-red-50">
@@ -440,10 +453,13 @@ function AddLocationForm({ onAdd }) {
 
 function ProjectMetaEditor({ project, sellingCompanies, onSave }) {
   const furniture = bomPerLine(project.project_type);
+  // Margins are admin-only (the API ignores them from anyone else).
+  const isAdmin = !!useCurrentUser()?.is_admin;
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState(project.code || "");
   const [sellingCompanyId, setSellingCompanyId] = useState(project.selling_company_id || "");
   const [cny, setCny] = useState(project.cny_per_usd ?? "");
+  const [margin, setMargin] = useState(project.default_margin_pct ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -451,7 +467,8 @@ function ProjectMetaEditor({ project, sellingCompanies, onSave }) {
     setCode(project.code || "");
     setSellingCompanyId(project.selling_company_id || "");
     setCny(project.cny_per_usd ?? "");
-  }, [project.id, project.code, project.selling_company_id, project.cny_per_usd]);
+    setMargin(project.default_margin_pct ?? "");
+  }, [project.id, project.code, project.selling_company_id, project.cny_per_usd, project.default_margin_pct]);
 
   if (!open) {
     return (
@@ -462,7 +479,7 @@ function ProjectMetaEditor({ project, sellingCompanies, onSave }) {
           </div>
         )}
         <button onClick={() => setOpen(true)} className="text-xs text-ruby hover:underline">
-          Edit project code / selling company{furniture ? " / CNY rate" : ""}
+          Edit project code / selling company{furniture ? " / CNY rate" : ""}{isAdmin ? " / margin" : ""}
         </button>
       </div>
     );
@@ -475,6 +492,7 @@ function ProjectMetaEditor({ project, sellingCompanies, onSave }) {
     try {
       const patch = { code: code.trim(), selling_company_id: sellingCompanyId ? Number(sellingCompanyId) : null };
       if (furniture) patch.cny_per_usd = cny === "" ? null : Number(cny);
+      if (isAdmin && margin !== "") patch.default_margin_pct = Number(margin);
       await onSave(patch);
       setOpen(false);
     } catch (err) {
@@ -505,6 +523,12 @@ function ProjectMetaEditor({ project, sellingCompanies, onSave }) {
           <input type="number" step="0.01" value={cny} onChange={(e) => setCny(e.target.value)} placeholder="7.20" className="w-24 border rounded-md px-2 py-1.5 text-sm" />
         </div>
       )}
+      {isAdmin && (
+        <div>
+          <label className="text-xs text-ink/60">Default margin %</label>
+          <input type="number" step="0.1" value={margin} onChange={(e) => setMargin(e.target.value)} className="w-24 border rounded-md px-2 py-1.5 text-sm" />
+        </div>
+      )}
       <button disabled={saving} className="text-sm px-3 py-1.5 rounded-md bg-ruby text-white hover:bg-ruby-dark">
         {saving ? "Saving..." : "Save"}
       </button>
@@ -530,9 +554,10 @@ function LocationBlock({ location, lines, products, supportItems, vendors, showL
   const [editingId, setEditingId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const furniture = bomPerLine(project.project_type);
+  const isAdmin = !!useCurrentUser()?.is_admin;
   const total = lines.reduce((s, l) => s + lineCosts(l, costMap, project, lineDataById).costTotal, 0);
   const productById = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
-  const editColSpan = showLabor ? 8 : 7;
+  const editColSpan = 6 + (showLabor ? 1 : 0) + (isAdmin ? 1 : 0);
 
   return (
     <div className="bg-white border rounded-lg overflow-hidden">
@@ -560,7 +585,7 @@ function LocationBlock({ location, lines, products, supportItems, vendors, showL
               <th className="px-2 py-2 font-normal text-right">Qty</th>
               <th className="px-2 py-2 font-normal text-right">Material/unit</th>
               {showLabor && <th className="px-2 py-2 font-normal text-right">Labor/unit</th>}
-              <th className="px-2 py-2 font-normal text-right">Margin</th>
+              {isAdmin && <th className="px-2 py-2 font-normal text-right">Margin</th>}
               <th className="px-2 py-2 font-normal text-right">Line total</th>
               <th className="px-4 py-2"></th>
             </tr>
@@ -617,7 +642,7 @@ function LocationBlock({ location, lines, products, supportItems, vendors, showL
                     <td className="px-2 py-2 text-right">{num(l.qty, 1)} {product?.uom}</td>
                     <td className="px-2 py-2 text-right">{money(c.materialPerUnit)}</td>
                     {showLabor && <td className="px-2 py-2 text-right">{money(c.laborPerUnit)}</td>}
-                    <td className="px-2 py-2 text-right">{l.margin_pct_override != null ? `${l.margin_pct_override}%` : "default"}</td>
+                    {isAdmin && <td className="px-2 py-2 text-right">{l.margin_pct_override != null ? `${l.margin_pct_override}%` : "default"}</td>}
                     <td className="px-2 py-2 text-right font-medium">{money(c.costTotal)}</td>
                     <td className="px-4 py-2 text-right whitespace-nowrap">
                       {!isTempLine && (furniture || components.length > 0) && (
@@ -909,6 +934,7 @@ function factoryWorkVendorName(vendors, vendorId) {
 }
 
 function LineItemForm({ products, vendors = [], showLabor = true, furniture = false, initial, onCancel, onSubmit }) {
+  const isAdmin = !!useCurrentUser()?.is_admin;
   const [productId, setProductId] = useState(initial?.product_id ?? "");
   const [qty, setQty] = useState(initial?.qty ?? "");
   const [margin, setMargin] = useState(initial?.margin_pct_override ?? "");
@@ -964,10 +990,12 @@ function LineItemForm({ products, vendors = [], showLabor = true, furniture = fa
         <label className="text-xs text-ink/60">Qty {selected ? `(${selected.uom})` : ""}</label>
         <input required type="number" step="0.01" value={qty} onChange={(e) => setQty(e.target.value)} className="w-24 border rounded-md px-2 py-1.5 text-sm" />
       </div>
-      <div>
-        <label className="text-xs text-ink/60">Margin % override</label>
-        <input type="number" step="0.1" placeholder="default" value={margin} onChange={(e) => setMargin(e.target.value)} className="w-24 border rounded-md px-2 py-1.5 text-sm" />
-      </div>
+      {isAdmin && (
+        <div>
+          <label className="text-xs text-ink/60">Margin % override</label>
+          <input type="number" step="0.1" placeholder="default" value={margin} onChange={(e) => setMargin(e.target.value)} className="w-24 border rounded-md px-2 py-1.5 text-sm" />
+        </div>
+      )}
       <div>
         <label className="text-xs text-ink/60" title="Exports as project code + item code. Same product + same code = the same product.">
           Item code{furniture ? " *" : ""}

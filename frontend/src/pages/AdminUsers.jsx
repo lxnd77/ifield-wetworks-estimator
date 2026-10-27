@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api";
+import { PageLoading } from "../components/Spinner";
 import { useCurrentUser } from "../components/RequireAuth";
 
 export default function AdminUsers() {
@@ -16,7 +17,7 @@ export default function AdminUsers() {
     return <div className="text-sm text-ink/60 bg-white border rounded-lg p-6">Admin access required.</div>;
   }
   if (error) return <div className="text-sm text-red-600">{error}</div>;
-  if (!users) return <div className="text-ink/40 text-sm">Loading...</div>;
+  if (!users) return <PageLoading label="Loading users..." />;
 
   return (
     <div className="space-y-6 max-w-xl">

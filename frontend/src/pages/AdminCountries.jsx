@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api";
+import { PageLoading } from "../components/Spinner";
 
 export default function AdminCountries() {
   const [countries, setCountries] = useState([]);
+  const [loaded, setLoaded] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const navigate = useNavigate();
 
   const load = () => {
-    api.get("/countries").then((r) => setCountries(r.data));
+    api.get("/countries").then((r) => setCountries(r.data)).finally(() => setLoaded(true));
   };
   useEffect(load, []);
 
@@ -21,6 +23,7 @@ export default function AdminCountries() {
         </button>
       </div>
 
+      {!loaded && <PageLoading label="Loading countries..." />}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {countries.map((c) => (
           <Link to={`/admin/countries/${c.id}`} key={c.id} className="bg-white border rounded-lg p-4 hover:shadow-md transition block">
