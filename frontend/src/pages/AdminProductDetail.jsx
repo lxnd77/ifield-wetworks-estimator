@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../api";
+import { PageLoading } from "../components/Spinner";
 import { PROJECT_TYPES, typeLabel, laborApplies } from "../projectTypes";
 import { UOMS, DEFAULT_UOM } from "../uoms";
 
@@ -37,7 +38,7 @@ export default function AdminProductDetail() {
     });
   }, [countryId]);
 
-  if (!product) return <div className="text-slate-400 text-sm">Loading...</div>;
+  if (!product) return <PageLoading label="Loading product..." />;
 
   const savePrice = async (supportItemId, value) => {
     const res = await api.put(`/countries/${countryId}/material-prices`, {

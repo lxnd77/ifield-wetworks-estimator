@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../api";
+import { PageLoading } from "../components/Spinner";
 import { useCurrentUser } from "../components/RequireAuth";
 
 const FIELD_GROUPS = [
@@ -66,7 +67,7 @@ export default function AdminCountryDetail() {
   };
   useEffect(() => { load(); }, [id]);
 
-  if (!country || !form) return <div className="text-slate-400 text-sm">Loading...</div>;
+  if (!country || !form) return <PageLoading label="Loading country..." />;
 
   const set = (k, type) => (e) => setForm({ ...form, [k]: type === "number" ? e.target.value : e.target.value });
 

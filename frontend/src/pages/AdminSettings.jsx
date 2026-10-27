@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api";
+import { Spinner } from "../components/Spinner";
 
 const TABS = [
   {
@@ -68,11 +69,12 @@ function emptyForm(fields) {
 
 function EntityTable({ tab }) {
   const [rows, setRows] = useState([]);
+  const [loaded, setLoaded] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
 
-  const load = () => { api.get(tab.endpoint).then((r) => setRows(r.data)); };
+  const load = () => { api.get(tab.endpoint).then((r) => setRows(r.data)).finally(() => setLoaded(true)); };
   useEffect(load, [tab.endpoint]);
 
   const submitNew = async (form) => {
@@ -150,7 +152,9 @@ function EntityTable({ tab }) {
           {rows.length === 0 && !adding && (
             <tr>
               <td colSpan={tab.fields.length + 1} className="py-4 text-xs text-slate-400 text-center">
-                Nothing here yet.
+                {loaded ? "Nothing here yet." : (
+                  <span className="inline-flex items-center gap-2"><Spinner className="h-4 w-4 text-ruby" /> Loading...</span>
+                )}
               </td>
             </tr>
           )}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api";
+import { PageLoading } from "../components/Spinner";
 import { UOMS } from "../uoms";
 
 // Wetworks (Paint / Tile / Stone / Metal) + furniture (Fabric / Stone / Metal / Accessories).
@@ -7,12 +8,13 @@ const PURCHASE_CATEGORIES = ["Paint", "Tile", "Stone", "Metal", "Fabric", "Acces
 
 export default function AdminSupportItems() {
   const [items, setItems] = useState([]);
+  const [loaded, setLoaded] = useState(false);
   const [vendors, setVendors] = useState([]);
   const [purchasingCompanies, setPurchasingCompanies] = useState([]);
   const [search, setSearch] = useState("");
 
   const load = () => {
-    api.get("/support-items").then((r) => setItems(r.data));
+    api.get("/support-items").then((r) => setItems(r.data)).finally(() => setLoaded(true));
     api.get("/vendors").then((r) => setVendors(r.data));
     api.get("/purchasing-companies").then((r) => setPurchasingCompanies(r.data));
   };
@@ -50,6 +52,7 @@ export default function AdminSupportItems() {
         className="border rounded-md px-3 py-2 text-sm flex-1 max-w-sm bg-white mb-4"
       />
 
+      {!loaded ? <PageLoading label="Loading BOM items..." /> : (
       <div className="bg-white border rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -122,6 +125,7 @@ export default function AdminSupportItems() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }
