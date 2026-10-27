@@ -9,4 +9,8 @@ openpyxl==3.1.5
 pillow==11.0.0
 python-dateutil==2.9.0
 pg8000==1.31.5
+# pg8000's SCRAM auth dependency, unpinned upstream. 1.5.0 dropped
+# make_channel_binding, which pg8000 1.31.5 calls on every connect --
+# a fresh install with it crashes the function at startup.
+scramp==1.4.18
 PyJWT==2.9.0
