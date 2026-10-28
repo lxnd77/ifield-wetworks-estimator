@@ -6,6 +6,9 @@ services:
       # Swap for a Postgres DSN in production, e.g.:
       # DATABASE_URL: postgresql+psycopg2://ifield:ifield@db:5432/ifield_wetworks
       DATABASE_URL: sqlite:////app/data/ifield_wetworks.db
+      # Signs login tokens. Required once DATABASE_URL is Postgres; set it for
+      # any real deployment (`python -c "import secrets; print(secrets.token_urlsafe(48))"`).
+      JWT_SECRET: ${JWT_SECRET:-}
     volumes:
       - backend_data:/app/data
     ports:

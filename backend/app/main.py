@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session, joinedload
 
 from . import models, schemas, service, auth, calc, project_types, uoms
-from .database import Base, engine, get_db
+from .database import Base, engine, get_db, IS_PRODUCTION
 from .export_excel import (
     build_sale_estimation_workbook, build_bom_workbook, build_product_import_workbooks, norm_code,
 )
@@ -21,23 +21,53 @@ from .export_boq import build_supplier_boq_workbook
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="I-Field Estimator")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+# Interactive API docs list every endpoint -- handy locally, off when live
+# unless ENABLE_API_DOCS=1.
+_docs = not IS_PRODUCTION or os.environ.get("ENABLE_API_DOCS") == "1"
+app = FastAPI(
+    title="I-Field Estimator",
+    docs_url="/docs" if _docs else None,
+    redoc_url="/redoc" if _docs else None,
+    openapi_url="/openapi.json" if _docs else None,
 )
+
+# The frontend is served from the same origin as the API (Vercel, nginx, and
+# Vite's dev proxy alike), so no CORS is needed. CORS_ORIGINS (comma-separated)
+# opens it for a frontend hosted elsewhere. Auth is a bearer header, never a
+# cookie, so credentials stay off.
+_cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 # ---------------------------------------------------------------- auth
 @app.post("/api/auth/login", response_model=schemas.TokenOut)
 def login(payload: schemas.LoginIn, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.username == payload.username).first()
-    if not user or not auth.verify_password(payload.password, user.password_hash):
+    if not user:
+        auth.verify_password(payload.password, auth.DUMMY_PASSWORD_HASH)  # same timing as a real miss
         raise HTTPException(401, "invalid username or password")
+    now = datetime.utcnow()
+    if user.locked_until and user.locked_until > now:
+        minutes = max(1, round((user.locked_until - now).total_seconds() / 60))
+        raise HTTPException(429, f"too many failed attempts -- try again in {minutes} min, "
+                                 f"or ask an admin to reset your password")
+    if not auth.verify_password(payload.password, user.password_hash):
+        user.failed_login_count = (user.failed_login_count or 0) + 1
+        if user.failed_login_count >= auth.MAX_FAILED_LOGINS:
+            user.failed_login_count = 0
+            user.locked_until = now + auth.LOCKOUT_DURATION
+        db.commit()
+        raise HTTPException(401, "invalid username or password")
+    if user.failed_login_count or user.locked_until:
+        user.failed_login_count = 0
+        user.locked_until = None
+        db.commit()
     return schemas.TokenOut(access_token=auth.create_access_token(user.id), user=user)
 
 
@@ -68,6 +98,8 @@ def reset_user_password(user_id: int, payload: schemas.PasswordResetIn, db: Sess
     if not u:
         raise HTTPException(404, "user not found")
     u.password_hash = auth.hash_password(payload.new_password)
+    u.failed_login_count = 0
+    u.locked_until = None
     db.commit()
     db.refresh(u)
     return u
@@ -102,7 +134,7 @@ def get_product(product_id: int, db: Session = Depends(get_db), user: models.Use
 
 
 @app.post("/api/products", response_model=schemas.ProductOut)
-def create_product(payload: schemas.ProductIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def create_product(payload: schemas.ProductIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     if not project_types.is_valid(payload.product_type):
         raise HTTPException(422, f"unknown product_type {payload.product_type!r}")
     # Furniture products carry no catalog-level recipe or coverage rate (the
@@ -116,7 +148,7 @@ def create_product(payload: schemas.ProductIn, db: Session = Depends(get_db), us
 
 
 @app.put("/api/products/{product_id}", response_model=schemas.ProductOut)
-def update_product(product_id: int, payload: schemas.ProductIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def update_product(product_id: int, payload: schemas.ProductIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     p = db.query(models.Product).get(product_id)
     if not p:
         raise HTTPException(404, "product not found")
@@ -131,7 +163,7 @@ def update_product(product_id: int, payload: schemas.ProductIn, db: Session = De
 
 
 @app.put("/api/products/{product_id}/coverage-rate", response_model=schemas.CoverageRateOut)
-def set_coverage_rate(product_id: int, payload: schemas.CoverageRateIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def set_coverage_rate(product_id: int, payload: schemas.CoverageRateIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     p = db.query(models.Product).get(product_id)
     if not p:
         raise HTTPException(404, "product not found")
@@ -149,7 +181,7 @@ def set_coverage_rate(product_id: int, payload: schemas.CoverageRateIn, db: Sess
 
 
 @app.post("/api/products/{product_id}/bom-lines", response_model=schemas.BomLineOut)
-def add_bom_line(product_id: int, payload: schemas.BomLineIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def add_bom_line(product_id: int, payload: schemas.BomLineIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     p = db.query(models.Product).get(product_id)
     if not p:
         raise HTTPException(404, "product not found")
@@ -178,7 +210,7 @@ def add_bom_line(product_id: int, payload: schemas.BomLineIn, db: Session = Depe
 
 
 @app.put("/api/bom-lines/{bom_line_id}", response_model=schemas.BomLineOut)
-def update_bom_line(bom_line_id: int, payload: schemas.BomLineIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def update_bom_line(bom_line_id: int, payload: schemas.BomLineIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     line = db.query(models.BomLine).get(bom_line_id)
     if not line:
         raise HTTPException(404, "bom line not found")
@@ -194,7 +226,7 @@ def update_bom_line(bom_line_id: int, payload: schemas.BomLineIn, db: Session = 
 
 
 @app.delete("/api/bom-lines/{bom_line_id}")
-def delete_bom_line(bom_line_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def delete_bom_line(bom_line_id: int, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     line = db.query(models.BomLine).get(bom_line_id)
     if not line:
         raise HTTPException(404, "bom line not found")
@@ -227,7 +259,7 @@ def list_support_items(db: Session = Depends(get_db), user: models.User = Depend
 
 
 @app.post("/api/support-items", response_model=schemas.SupportItemOut)
-def create_support_item(payload: schemas.SupportItemIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def create_support_item(payload: schemas.SupportItemIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     si = models.SupportItem(**payload.model_dump())
     db.add(si)
     service.assign_furniture_default_vendor(db, si)
@@ -237,7 +269,7 @@ def create_support_item(payload: schemas.SupportItemIn, db: Session = Depends(ge
 
 
 @app.put("/api/support-items/{support_item_id}", response_model=schemas.SupportItemOut)
-def update_support_item(support_item_id: int, payload: schemas.SupportItemIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def update_support_item(support_item_id: int, payload: schemas.SupportItemIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     si = db.query(models.SupportItem).get(support_item_id)
     if not si:
         raise HTTPException(404, "support item not found")
@@ -255,7 +287,7 @@ def list_vendors(db: Session = Depends(get_db), user: models.User = Depends(auth
 
 
 @app.post("/api/vendors", response_model=schemas.VendorOut)
-def create_vendor(payload: schemas.VendorIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def create_vendor(payload: schemas.VendorIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     if db.query(models.Vendor).filter(models.Vendor.name == payload.name).first():
         raise HTTPException(400, f"vendor {payload.name} already exists")
     v = models.Vendor(**payload.model_dump())
@@ -266,7 +298,7 @@ def create_vendor(payload: schemas.VendorIn, db: Session = Depends(get_db), user
 
 
 @app.put("/api/vendors/{vendor_id}", response_model=schemas.VendorOut)
-def update_vendor(vendor_id: int, payload: schemas.VendorIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def update_vendor(vendor_id: int, payload: schemas.VendorIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     v = db.query(models.Vendor).get(vendor_id)
     if not v:
         raise HTTPException(404, "vendor not found")
@@ -278,7 +310,7 @@ def update_vendor(vendor_id: int, payload: schemas.VendorIn, db: Session = Depen
 
 
 @app.delete("/api/vendors/{vendor_id}")
-def delete_vendor(vendor_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def delete_vendor(vendor_id: int, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     v = db.query(models.Vendor).get(vendor_id)
     if not v:
         raise HTTPException(404, "vendor not found")
@@ -293,7 +325,7 @@ def list_purchasing_companies(db: Session = Depends(get_db), user: models.User =
 
 
 @app.post("/api/purchasing-companies", response_model=schemas.PurchasingCompanyOut)
-def create_purchasing_company(payload: schemas.PurchasingCompanyIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def create_purchasing_company(payload: schemas.PurchasingCompanyIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     if db.query(models.PurchasingCompany).filter(models.PurchasingCompany.name == payload.name).first():
         raise HTTPException(400, f"purchasing company {payload.name} already exists")
     pc = models.PurchasingCompany(**payload.model_dump())
@@ -304,7 +336,7 @@ def create_purchasing_company(payload: schemas.PurchasingCompanyIn, db: Session 
 
 
 @app.put("/api/purchasing-companies/{purchasing_company_id}", response_model=schemas.PurchasingCompanyOut)
-def update_purchasing_company(purchasing_company_id: int, payload: schemas.PurchasingCompanyIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def update_purchasing_company(purchasing_company_id: int, payload: schemas.PurchasingCompanyIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     pc = db.query(models.PurchasingCompany).get(purchasing_company_id)
     if not pc:
         raise HTTPException(404, "purchasing company not found")
@@ -316,7 +348,7 @@ def update_purchasing_company(purchasing_company_id: int, payload: schemas.Purch
 
 
 @app.delete("/api/purchasing-companies/{purchasing_company_id}")
-def delete_purchasing_company(purchasing_company_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def delete_purchasing_company(purchasing_company_id: int, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     pc = db.query(models.PurchasingCompany).get(purchasing_company_id)
     if not pc:
         raise HTTPException(404, "purchasing company not found")
@@ -331,7 +363,7 @@ def list_selling_companies(db: Session = Depends(get_db), user: models.User = De
 
 
 @app.post("/api/selling-companies", response_model=schemas.SellingCompanyOut)
-def create_selling_company(payload: schemas.SellingCompanyIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def create_selling_company(payload: schemas.SellingCompanyIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     if db.query(models.SellingCompany).filter(models.SellingCompany.name == payload.name).first():
         raise HTTPException(400, f"selling company {payload.name} already exists")
     sc = models.SellingCompany(**payload.model_dump())
@@ -342,7 +374,7 @@ def create_selling_company(payload: schemas.SellingCompanyIn, db: Session = Depe
 
 
 @app.put("/api/selling-companies/{selling_company_id}", response_model=schemas.SellingCompanyOut)
-def update_selling_company(selling_company_id: int, payload: schemas.SellingCompanyIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def update_selling_company(selling_company_id: int, payload: schemas.SellingCompanyIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     sc = db.query(models.SellingCompany).get(selling_company_id)
     if not sc:
         raise HTTPException(404, "selling company not found")
@@ -354,7 +386,7 @@ def update_selling_company(selling_company_id: int, payload: schemas.SellingComp
 
 
 @app.delete("/api/selling-companies/{selling_company_id}")
-def delete_selling_company(selling_company_id: int, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def delete_selling_company(selling_company_id: int, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     sc = db.query(models.SellingCompany).get(selling_company_id)
     if not sc:
         raise HTTPException(404, "selling company not found")
@@ -384,7 +416,7 @@ _COUNTRY_IDENTITY_FIELDS = {"name", "code", "notes"}
 
 
 @app.post("/api/countries", response_model=schemas.CountryOut)
-def create_country(payload: schemas.CountryIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def create_country(payload: schemas.CountryIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     if db.query(models.Country).filter(models.Country.code == payload.code).first():
         raise HTTPException(400, f"country code {payload.code} already exists")
     data = payload.model_dump()
@@ -426,7 +458,7 @@ def delete_country(country_id: int, db: Session = Depends(get_db), admin: models
 
 
 @app.put("/api/countries/{country_id}", response_model=schemas.CountryOut)
-def update_country(country_id: int, payload: schemas.CountryIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def update_country(country_id: int, payload: schemas.CountryIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     c = db.query(models.Country).get(country_id)
     if not c:
         raise HTTPException(404, "country not found")
@@ -446,7 +478,7 @@ def list_material_prices(country_id: int, db: Session = Depends(get_db), user: m
 
 
 @app.put("/api/countries/{country_id}/material-prices", response_model=schemas.CountryMaterialPriceOut)
-def upsert_material_price(country_id: int, payload: schemas.CountryMaterialPriceIn, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
+def upsert_material_price(country_id: int, payload: schemas.CountryMaterialPriceIn, db: Session = Depends(get_db), admin: models.User = Depends(auth.get_current_admin)):
     row = db.query(models.CountryMaterialPrice).filter(
         models.CountryMaterialPrice.country_id == country_id,
         models.CountryMaterialPrice.support_item_id == payload.support_item_id,

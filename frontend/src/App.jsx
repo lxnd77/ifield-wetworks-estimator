@@ -1,6 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
-import RequireAuth from "./components/RequireAuth";
+import RequireAuth, { RequireAdmin } from "./components/RequireAuth";
 import Login from "./pages/Login";
 import ProjectsList from "./pages/ProjectsList";
 import ProjectDetail from "./pages/ProjectDetail";
@@ -20,13 +20,15 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<ProjectsList />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
-          <Route path="/admin/products" element={<AdminProducts />} />
-          <Route path="/admin/products/:id" element={<AdminProductDetail />} />
-          <Route path="/admin/support-items" element={<AdminSupportItems />} />
-          <Route path="/admin/countries" element={<AdminCountries />} />
-          <Route path="/admin/countries/:id" element={<AdminCountryDetail />} />
-          <Route path="/admin/settings" element={<AdminSettings />} />
-          <Route path="/admin/users" element={<AdminUsers />} />
+          <Route element={<RequireAdmin />}>
+            <Route path="/admin/products" element={<AdminProducts />} />
+            <Route path="/admin/products/:id" element={<AdminProductDetail />} />
+            <Route path="/admin/support-items" element={<AdminSupportItems />} />
+            <Route path="/admin/countries" element={<AdminCountries />} />
+            <Route path="/admin/countries/:id" element={<AdminCountryDetail />} />
+            <Route path="/admin/settings" element={<AdminSettings />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
+          </Route>
         </Route>
       </Route>
     </Routes>

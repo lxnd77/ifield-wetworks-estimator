@@ -65,6 +65,19 @@ mid-edit then); same support item + code must carry the same CNY price
 de-duplication key. Catalog `odoo_id`s are never exported: they belong to
 the shared catalog record.
 
+Catalog and rate-card **writes** (products, BOM lines, coverage rates,
+support items, vendors, purchasing/selling companies, countries, material
+prices) are admin-only (`auth.get_current_admin`); reads stay open to every
+user, and the admin screens are hidden + route-guarded (`RequireAdmin`) for
+non-admins. Live deployments (`database.IS_PRODUCTION`: on Vercel or a
+non-SQLite DB) refuse to start without `JWT_SECRET` and hide `/docs`. CORS
+is off unless `CORS_ORIGINS` is set (frontend is same-origin). Login locks a
+user for 15 min after 5 consecutive failures (`User.failed_login_count` /
+`locked_until`, kept in the DB because serverless instances share no
+memory); an admin password reset clears it. Fonts are self-hosted
+(`@fontsource-variable`) — never add Google Fonts or other Google/CDN
+assets back: they're blocked in mainland China, where part of the team works.
+
 Margins are admin-only: `main._guard_project_margin` / `_guard_line_margin`
 make the API ignore margin values from non-admins (new projects get
 `project_types.DEFAULT_MARGIN_PCT` = 15), and the UI hides every margin

@@ -16,13 +16,25 @@ from fastapi import Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 
 from . import models
-from .database import get_db
+from .database import get_db, IS_PRODUCTION
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "dev-only-insecure-secret-change-me")
+JWT_SECRET = os.environ.get("JWT_SECRET", "")
+if not JWT_SECRET:
+    # Anyone who knows the fallback secret (it's in this public repo) can mint
+    # an admin token, so a live deployment refuses to start without one.
+    if IS_PRODUCTION:
+        raise RuntimeError("JWT_SECRET must be set (e.g. `python -c \"import secrets; print(secrets.token_urlsafe(48))\"`)")
+    JWT_SECRET = "dev-only-insecure-secret-change-me"
 JWT_ALGORITHM = "HS256"
 TOKEN_TTL_DAYS = 14
 
 PBKDF2_ITERATIONS = 260_000
+
+# Login lockout, tracked on the user row (not in memory: on Vercel each
+# request may land on a different function instance). An admin password
+# reset clears it.
+MAX_FAILED_LOGINS = 5
+LOCKOUT_DURATION = timedelta(minutes=15)
 
 
 def hash_password(password: str) -> str:
@@ -40,6 +52,13 @@ def verify_password(password: str, password_hash: str) -> bool:
     expected = bytes.fromhex(digest_hex)
     actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS)
     return hmac.compare_digest(actual, expected)
+
+
+# Checked against on an unknown username so it costs the same as a wrong
+# password (no username probing by timing). Hash of a random, discarded string.
+DUMMY_PASSWORD_HASH = (
+    "5188dff11fbb9c09ccae2cf1f3b64428$6528395ca6f19ad27cbecba65802428f701d1fc89cd6a32d4bdf3be983193466"
+)
 
 
 def create_access_token(user_id: int) -> str:

@@ -514,12 +514,13 @@ def test_wetworks_components_fall_back_to_product_company():
 
 
 def _furniture_project(client, h, cid):
-    prod = client.post("/api/products", headers=h, json={
+    ah = _auth(_login(client, "admin", "adminpass"))  # catalog writes are admin-only
+    prod = client.post("/api/products", headers=ah, json={
         "name": "F chair", "uom": "Pcs", "category": "Seating",
         "product_type": "loose_furniture"}).json()
-    pc = client.post("/api/purchasing-companies", headers=h, json={
+    pc = client.post("/api/purchasing-companies", headers=ah, json={
         "name": f"PC {uuid.uuid4().hex[:8]}"}).json()["id"]
-    si = client.post("/api/support-items", headers=h, json={
+    si = client.post("/api/support-items", headers=ah, json={
         "name": "F fabric", "uom": "m", "purchase_category": "Fabric",
         "purchasing_company_id": pc}).json()["id"]
     pid = client.post("/api/projects", headers=h, json={
@@ -554,7 +555,7 @@ def test_furniture_component_code_is_item_plus_code(client):
     token = _login(client, "alice", "alicepass")
     h = _auth(token)
     prod, si, pid, loc = _furniture_project(client, h, _country_id(client, token))
-    si2 = client.post("/api/support-items", headers=h, json={
+    si2 = client.post("/api/support-items", headers=_auth(_login(client, "admin", "adminpass")), json={
         "name": "F stone", "uom": "Sqm", "purchase_category": "Stone"}).json()["id"]
     l1 = client.post(f"/api/projects/{pid}/estimate-lines", headers=h,
                      json={"location_id": loc, "product_id": prod, "qty": 1}).json()["id"]
@@ -702,7 +703,7 @@ def test_furniture_export_requires_component_purchasing_company(client):
     assert client.post(f"/api/estimate-lines/{lid}/components", headers=h, json={
         "support_item_id": si, "qty_per_unit": 1, "unit_price_cny": 30, "item_code": "FAB"}).status_code == 200
     assert client.get(f"/api/projects/{pid}/export/bom", headers=h).status_code == 200
-    client.put(f"/api/support-items/{si}", headers=h, json={
+    client.put(f"/api/support-items/{si}", headers=_auth(_login(client, "admin", "adminpass")), json={
         "name": "F fabric", "uom": "m", "purchase_category": "Fabric", "purchasing_company_id": None})
     r = client.get(f"/api/projects/{pid}/export/bom", headers=h)
     assert r.status_code == 422 and "no purchasing company" in r.json()["detail"]
@@ -802,7 +803,7 @@ def test_new_country_copies_ksa_rate_card_and_prices(client):
     finally:
         db.close()
 
-    token = _login(client, "alice", "alicepass")
+    token = _login(client, "admin", "adminpass")
     r = client.post("/api/countries", headers=_auth(token), json={"name": "Nigeria", "code": "NGA"})
     assert r.status_code == 200, r.text
     c = r.json()
@@ -813,7 +814,8 @@ def test_new_country_copies_ksa_rate_card_and_prices(client):
     assert [(p["support_item_id"], p["unit_price_local"]) for p in prices] == [(si_id, 18.5)]
 
     # deleting: admin only, never the source country, never one in use
-    assert client.delete(f"/api/countries/{c['id']}", headers=_auth(token)).status_code == 403
+    alice = _auth(_login(client, "alice", "alicepass"))
+    assert client.delete(f"/api/countries/{c['id']}", headers=alice).status_code == 403
     admin = _auth(_login(client, "admin", "adminpass"))
     ksa_id = next(x["id"] for x in client.get("/api/countries", headers=admin).json() if x["code"] == "KSA")
     assert client.delete(f"/api/countries/{ksa_id}", headers=admin).status_code == 400
@@ -952,7 +954,7 @@ def test_factory_work_vendor_defaults_to_fad_and_is_selectable(client):
     vendors = {v["id"]: v["name"] for v in client.get(f"/api/projects/{pid}/workspace", headers=h).json()["vendors"]}
     assert vendors[line["factory_work_vendor_id"]] == project_types.DEFAULT_FACTORY_WORK_VENDOR
 
-    other = client.post("/api/vendors", headers=h, json={"name": f"FW {uuid.uuid4().hex[:6]}"}).json()
+    other = client.post("/api/vendors", headers=_auth(_login(client, "admin", "adminpass")), json={"name": f"FW {uuid.uuid4().hex[:6]}"}).json()
     r = _save(client, h, pid, [{"id": loc, "name": "L"}],
               [{"id": line["id"], "location_id": loc, "product_id": prod, "qty": 1, "item_code": "C1",
                 "factory_work_cost_cny": 10, "factory_work_vendor_id": other["id"]}])
@@ -1079,3 +1081,58 @@ def test_supplier_boq_endpoint_skips_export_checks(client):
     assert r.headers["content-disposition"] == 'attachment; filename="BOQ_F_proj.xlsx"'
     from io import BytesIO
     assert set(_boq_sheets(BytesIO(r.content))) == {"BOQ", "Fabric", "Factory Work"}
+
+
+# ---- launch hardening ----
+
+def test_catalog_and_rate_writes_are_admin_only(client):
+    h = _auth(_login(client, "alice", "alicepass"))
+    cid = _country_id(client, _login(client, "alice", "alicepass"))
+    writes = [
+        ("post", "/api/products", {"name": "X", "uom": "Units", "category": "C"}),
+        ("put", "/api/products/1", {"name": "X", "uom": "Units", "category": "C"}),
+        ("put", "/api/products/1/coverage-rate", {}),
+        ("post", "/api/products/1/bom-lines", {}),
+        ("put", "/api/bom-lines/1", {}),
+        ("delete", "/api/bom-lines/1", None),
+        ("post", "/api/support-items", {"name": "X", "uom": "Units"}),
+        ("put", "/api/support-items/1", {"name": "X", "uom": "Units"}),
+        ("post", "/api/vendors", {"name": "X"}),
+        ("put", "/api/vendors/1", {"name": "X"}),
+        ("delete", "/api/vendors/1", None),
+        ("post", "/api/purchasing-companies", {"name": "X"}),
+        ("put", "/api/purchasing-companies/1", {"name": "X"}),
+        ("delete", "/api/purchasing-companies/1", None),
+        ("post", "/api/selling-companies", {"name": "X"}),
+        ("put", "/api/selling-companies/1", {"name": "X"}),
+        ("delete", "/api/selling-companies/1", None),
+        ("post", "/api/countries", {"name": "X", "code": "XX"}),
+        ("put", f"/api/countries/{cid}", {"name": "X", "code": "XX"}),
+        ("put", f"/api/countries/{cid}/material-prices", {"support_item_id": 1, "unit_price_local": 1}),
+    ]
+    for method, url, body in writes:
+        kwargs = {"headers": h} if body is None else {"headers": h, "json": body}
+        r = getattr(client, method)(url, **kwargs)
+        assert r.status_code == 403, f"{method} {url} -> {r.status_code}"
+    # reads stay open to every logged-in user
+    assert client.get("/api/products", headers=h).status_code == 200
+    assert client.get("/api/vendors", headers=h).status_code == 200
+
+
+def test_login_locks_after_repeated_failures_and_reset_clears_it(client):
+    admin = _auth(_login(client, "admin", "adminpass"))
+    name = f"carol{uuid.uuid4().hex[:6]}"
+    uid = client.post("/api/users", headers=admin, json={"username": name, "password": "carolpass1"}).json()["id"]
+
+    for _ in range(4):
+        assert client.post("/api/auth/login", json={"username": name, "password": "nope"}).status_code == 401
+    _login(client, name, "carolpass1")  # a success resets the count
+    for _ in range(5):
+        assert client.post("/api/auth/login", json={"username": name, "password": "nope"}).status_code == 401
+    r = client.post("/api/auth/login", json={"username": name, "password": "carolpass1"})
+    assert r.status_code == 429 and "try again" in r.json()["detail"]
+
+    client.put(f"/api/users/{uid}/password", headers=admin, json={"new_password": "carolpass2"})
+    _login(client, name, "carolpass2")
+    # unknown usernames get the same answer as a wrong password
+    assert client.post("/api/auth/login", json={"username": "nobody", "password": "x"}).status_code == 401

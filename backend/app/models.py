@@ -238,6 +238,9 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     is_admin = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    # Login lockout (main.login): consecutive failures, and when a lock lifts.
+    failed_login_count = Column(Integer, nullable=False, default=0, server_default="0")
+    locked_until = Column(DateTime, nullable=True)
 
 
 class Project(Base):

@@ -37,3 +37,10 @@ export default function RequireAuth() {
     </UserContext.Provider>
   );
 }
+
+// Catalog, rate-card and user screens: every write behind them is admin-only
+// on the API, so non-admins are sent back to their projects.
+export function RequireAdmin() {
+  const user = useCurrentUser();
+  return user?.is_admin ? <Outlet /> : <Navigate to="/" replace />;
+}

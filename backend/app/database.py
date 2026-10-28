@@ -9,6 +9,11 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 # driver than the default below).
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./ifield_wetworks.db")
 
+# Anything on Vercel or on a real database is treated as a live deployment:
+# a JWT_SECRET is mandatory and the interactive API docs are off. Local
+# SQLite (dev, tests, docker-compose's default) keeps the conveniences.
+IS_PRODUCTION = bool(os.environ.get("VERCEL")) or not DATABASE_URL.startswith("sqlite")
+
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}

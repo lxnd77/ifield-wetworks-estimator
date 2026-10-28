@@ -83,7 +83,20 @@ point it at a hosted Postgres instance:
    connection string (Project Settings -> Environment Variables). Apply it
    to Production (and Preview, if you want preview deploys to hit the same
    DB, or point Preview at a separate database).
-5. Deploy.
+5. Add **`JWT_SECRET`** -- a long random string that signs login tokens
+   (`python -c "import secrets; print(secrets.token_urlsafe(48))"`). It is
+   **required**: on Vercel or any non-SQLite database the app refuses to
+   start without it (`app/auth.py`), since the dev fallback is public in this
+   repo. Changing it logs everyone out.
+6. Deploy.
+
+Optional environment variables:
+
+- `CORS_ORIGINS` -- comma-separated origins allowed to call the API from
+  another site. Unset by default: the frontend is served from the same
+  origin, so no CORS is needed.
+- `ENABLE_API_DOCS=1` -- turns `/docs` back on in a live deployment (off by
+  default there; always on for local SQLite).
 
 ## 3. Seed the production database (once)
 
